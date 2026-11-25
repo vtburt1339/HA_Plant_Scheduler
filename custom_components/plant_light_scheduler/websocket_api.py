@@ -21,6 +21,8 @@ from .scheduler import PlantLightScheduler
 
 MAX_ENTITIES = 64
 SWITCH_ENTITY_PATTERN = re.compile(r"^switch\.[a-z0-9_]+$")
+# Home Assistant validates the message shape before calling the handler.
+SCHEDULE_FIELDS = {"entities": [str], "on": str, "off": str, "enabled": bool}
 
 
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
@@ -98,7 +100,7 @@ def ws_list(
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({"type": WS_CREATE})
+@websocket_api.websocket_command({"type": WS_CREATE, **SCHEDULE_FIELDS})
 @websocket_api.async_response
 async def ws_create(
     hass: HomeAssistant,
@@ -115,7 +117,9 @@ async def ws_create(
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({"type": WS_UPDATE})
+@websocket_api.websocket_command(
+    {"type": WS_UPDATE, "schedule_id": str, **SCHEDULE_FIELDS}
+)
 @websocket_api.async_response
 async def ws_update(
     hass: HomeAssistant,
@@ -139,7 +143,7 @@ async def ws_update(
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({"type": WS_DELETE})
+@websocket_api.websocket_command({"type": WS_DELETE, "schedule_id": str})
 @websocket_api.async_response
 async def ws_delete(
     hass: HomeAssistant,

@@ -18,7 +18,5 @@ class PlantLightSchedulerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle setup from the integrations page."""
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
         return self.async_create_entry(title=NAME, data={})
 

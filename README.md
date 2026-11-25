@@ -23,15 +23,20 @@ The scheduler runs in Home Assistant, not in the browser. Schedules continue to 
 1. In HACS, open **Integrations**, then the three-dot menu and **Custom repositories**.
 2. Add this repository URL with the category **Integration**.
 3. Install **Plant Light Scheduler** and restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration**, search for **Plant Light Scheduler**, and add it.
 
 ### Manual
 
-Copy `custom_components/plant_light_scheduler` into your Home Assistant configuration's `custom_components` directory, restart Home Assistant, and add the integration from **Settings → Devices & services**.
+Copy `custom_components/plant_light_scheduler` into your Home Assistant configuration's `custom_components` directory and restart Home Assistant.
+
+### Set up the integration
+
+Go to **Settings → Devices & services**. If **Plant Light Scheduler** already appears there with a service entry, continue to [Add the card](#add-the-card). Otherwise, select **Add integration**, search for **Plant Light Scheduler**, and add it once.
+
+If you see “Only one Plant Light Scheduler instance can be configured,” close the dialog and use the existing service. You can create multiple schedules from the dashboard card.
 
 ## Add the card
 
-The integration registers the card automatically. Edit a dashboard, choose **Add card**, and search for **Plant Light Scheduler**.
+Refresh Home Assistant in your browser after setting up the integration. Open the dashboard where you want the card, select **Edit dashboard → Add card**, and search for **Plant Light Scheduler**. Once the card is added, use **Add schedule** on the card to create a schedule.
 
 You can also add it in YAML:
 
