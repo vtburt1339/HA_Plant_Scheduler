@@ -38,7 +38,7 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
             None,
         )
 
-        async def send(command: str, **fields: Any) -> Any:
+        async def send(command: str, *, error: str | None = None, **fields: Any) -> Any:
             msg_id = connection.last_id + 1
             connection.async_handle(
                 {"id": msg_id, "type": f"{DOMAIN}/{command}", **fields}
@@ -46,6 +46,11 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
             raw_reply = await asyncio.wait_for(replies.get(), timeout=5)
             reply = raw_reply if isinstance(raw_reply, dict) else json.loads(raw_reply)
             assert reply["id"] == msg_id
+            if error is not None:
+                assert not reply["success"]
+                assert reply["error"]["code"] == "invalid_format"
+                assert error in reply["error"]["message"]
+                return None
             assert reply["success"], reply.get("error")
             return reply["result"]
 
@@ -68,7 +73,19 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
             await reloaded.async_load()
             assert reloaded.schedules == [updated]
 
+            # A paused schedule still reserves its switches.
+            conflict = "Already in use by another schedule: switch.plant_lights_north"
+            await send("create", error=conflict, **fields)
+            south = {**fields, "entities": ["switch.plant_lights_south"]}
+            second = await send("create", **south)
+            both = {**fields, "entities": fields["entities"] + south["entities"]}
+            await send("update", schedule_id=second["id"], error=conflict, **both)
+            assert await send("list") == [updated, second]
+
             assert await send("delete", schedule_id=created["id"]) == {"success": True}
+            reassigned = await send("update", schedule_id=second["id"], **both)
+            assert reassigned == {"id": second["id"], **both}
+            assert await send("delete", schedule_id=second["id"]) == {"success": True}
             assert await send("list") == []
 
     asyncio.run(exercise_commands())

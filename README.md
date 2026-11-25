@@ -12,7 +12,7 @@ The scheduler runs in Home Assistant, not in the browser. Schedules continue to 
 - Daily on/off times, including schedules that cross midnight
 - Enable/disable toggle on each schedule
 - Add, edit, delete, and delete-confirmation flows
-- Safe overlap handling: a shared switch stays on while any active schedule needs it
+- One schedule per switch, with an **In Use** label for switches already assigned
 - Persistent storage in Home Assistant's `.storage` directory
 - Admin-only schedule changes; other users can view schedules
 
@@ -48,7 +48,7 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.0
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.1
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.
@@ -59,7 +59,8 @@ Choose **JavaScript module** as the resource type. This manual resource path als
 - An overnight range such as `18:00 → 06:00` works across midnight.
 - Home Assistant reconciles enabled schedules at startup and when a schedule is saved.
 - At normal runtime, the integration acts at schedule boundaries. A manual switch change is therefore allowed until the next on/off boundary.
-- When schedules overlap for one switch, the switch turns off only when no enabled schedule is currently active.
+- A switch is reserved by its schedule even while paused. Remove the switch from its existing schedule or delete that schedule to use it elsewhere.
+- If an older installation already has overlapping schedules for a switch, that switch stays on while any enabled schedule needs it.
 - Disabling or deleting a schedule stops future control and intentionally leaves switches at their current state.
 - Times use the Home Assistant server's configured local timezone.
 

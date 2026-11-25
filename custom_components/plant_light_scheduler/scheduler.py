@@ -91,6 +91,7 @@ class PlantLightScheduler:
             "enabled": data.get("enabled", True),
         }
         async with self._lock:
+            self._check_entity_assignments(set(schedule["entities"]))
             self.schedules.append(schedule)
             await self._async_save()
         await self.async_reconcile(schedule["entities"])
@@ -108,6 +109,9 @@ class PlantLightScheduler:
                 "off": data["off"],
                 "enabled": data.get("enabled", True),
             }
+            self._check_entity_assignments(
+                set(schedule["entities"]) - previously_managed
+            )
             self.schedules[index] = schedule
             await self._async_save()
         await self.async_reconcile(previously_managed | set(schedule["entities"]))
@@ -123,6 +127,20 @@ class PlantLightScheduler:
         # If another schedule still manages one of these entities, apply that
         # remaining schedule. Fully unmanaged entities are left unchanged.
         await self.async_reconcile(previously_managed)
+
+    def _check_entity_assignments(self, new_entities: set[str]) -> None:
+        """Reject newly assigned switches already used by another schedule."""
+        conflicts = sorted(
+            new_entities.intersection(
+                entity_id
+                for schedule in self.schedules
+                for entity_id in schedule["entities"]
+            )
+        )
+        if conflicts:
+            raise ValueError(
+                f"Already in use by another schedule: {', '.join(conflicts)}"
+            )
 
     def _find_index(self, schedule_id: str) -> int:
         """Find a schedule index or raise KeyError."""
