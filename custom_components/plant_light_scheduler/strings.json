@@ -1,0 +1,8 @@
+{
+  "title": "Plant Light Scheduler",
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Only one Plant Light Scheduler instance can be configured."
+    }
+  }
+}
