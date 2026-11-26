@@ -19,11 +19,12 @@ from homeassistant.const import (
     STATE_ON,
 )
 from homeassistant.core import CALLBACK_TYPE, CoreState, Event, HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import STORAGE_KEY, STORAGE_VERSION
+from .const import SCHEDULES_CHANGED, STORAGE_KEY, STORAGE_VERSION
 from .logic import desired_state, entities_at_boundary
 
 _LOGGER = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ class PlantLightScheduler:
 
     async def _async_save(self) -> None:
         """Write the current schedules to storage."""
+        async_dispatcher_send(self.hass, SCHEDULES_CHANGED)
         await self._store.async_save({"schedules": self.schedules})
 
     async def _async_home_assistant_started(self, _event: Event) -> None:
