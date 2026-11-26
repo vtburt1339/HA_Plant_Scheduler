@@ -10,7 +10,7 @@ from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
-from .const import CARD_URL, DATA_POWER, DATA_SCHEDULER, DOMAIN, VERSION
+from .const import AVATAR_URL, CARD_URL, DATA_POWER, DATA_SCHEDULER, DOMAIN, VERSION
 from .energy_websocket import async_register_energy_commands
 from .power import PlantLightPower
 from .scheduler import PlantLightScheduler
@@ -22,9 +22,14 @@ type PlantLightSchedulerConfigEntry = config_entries.ConfigEntry[dict[str, Any]]
 async def async_setup(hass: HomeAssistant, _config: dict[str, Any]) -> bool:
     """Set up frontend assets and WebSocket commands."""
     hass.data.setdefault(DOMAIN, {})
-    card_path = Path(__file__).parent / "frontend" / "plant-light-scheduler-card.js"
+    frontend = Path(__file__).parent / "frontend"
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(card_path), cache_headers=False)]
+        [
+            StaticPathConfig(
+                url, str(frontend / url.rsplit("/", 1)[1]), cache_headers=False
+            )
+            for url in (CARD_URL, AVATAR_URL)
+        ]
     )
     # Auto-load the card for a frictionless install. It can also be added as a
     # dashboard resource manually; that loading path is documented in README.

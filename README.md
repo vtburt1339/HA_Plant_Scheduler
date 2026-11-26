@@ -16,6 +16,7 @@ The scheduler runs in Home Assistant, not in the browser. Schedules continue to 
 - Persistent storage in Home Assistant's `.storage` directory
 - Admin-only schedule changes; other users can view schedules
 - Live watts and projected daily and 30-day costs in the scheduler card
+- 20 randomly assigned plant avatars with one-time use per installation
 
 ## Install
 
@@ -49,7 +50,7 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.3.0
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.4.0
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.
@@ -57,6 +58,7 @@ Choose **JavaScript module** as the resource type. This manual resource path als
 ## Scheduling behavior
 
 - The optional schedule name appears on the card. Leave it blank to display the selected switch names.
+- Existing and new schedules draw a random unused plant avatar. Assignments survive edits and restarts. Deleting a schedule retires its avatar, and subsequent schedules use the generic icon once all 20 have been issued.
 
 - Use the clock button beside **On** or **Off** to pick an hour and minute. You can also type a 24-hour time, such as `08:00` or `0800`.
 - The **on** minute is included and the **off** minute is excluded. `08:00 → 21:00` is on starting at 08:00 and off starting at 21:00.

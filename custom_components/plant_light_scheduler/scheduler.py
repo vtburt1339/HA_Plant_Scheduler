@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Iterable
 from datetime import datetime
+from random import choice
 from typing import Any, NotRequired, TypedDict
 from uuid import uuid4
 
@@ -23,7 +24,7 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import STORAGE_KEY, STORAGE_VERSION
+from .const import AVATAR_COUNT, STORAGE_KEY, STORAGE_VERSION
 from .logic import desired_state, entities_at_boundary
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,6 +39,14 @@ class Schedule(TypedDict):
     off: str
     enabled: bool
     name: NotRequired[str]
+    avatar: NotRequired[int]
+
+
+class ScheduleStorage(TypedDict):
+    """Schedule data and the avatars already issued on this installation."""
+
+    schedules: list[Schedule]
+    used_avatars: NotRequired[list[int]]
 
 
 class PlantLightScheduler:
@@ -47,8 +56,9 @@ class PlantLightScheduler:
         """Initialize the scheduler."""
         self.hass = hass
         self.schedules: list[Schedule] = []
-        self._store: Store[dict[str, list[Schedule]]] = Store(
-            hass, STORAGE_VERSION, STORAGE_KEY
+        self._used_avatars: set[int] = set()
+        self._store: Store[ScheduleStorage] = Store(
+            hass, STORAGE_VERSION, STORAGE_KEY, atomic_writes=True
         )
         self._lock = asyncio.Lock()
         self._unsub_tick: CALLBACK_TYPE | None = None
@@ -56,8 +66,17 @@ class PlantLightScheduler:
 
     async def async_load(self) -> None:
         """Load schedules from Home Assistant storage."""
-        stored = await self._store.async_load()
-        self.schedules = list((stored or {}).get("schedules", []))
+        stored = await self._store.async_load() or {"schedules": []}
+        self.schedules = list(stored.get("schedules", []))
+        used = set(stored.get("used_avatars", []))
+        self._used_avatars = used | {
+            schedule["avatar"] for schedule in self.schedules if "avatar" in schedule
+        }
+        for schedule in self.schedules:
+            if "avatar" not in schedule:
+                self._assign_avatar(schedule)
+        if self._used_avatars != used:
+            await self._async_save()
 
     async def async_start(self) -> None:
         """Start watching local minute boundaries."""
@@ -95,6 +114,7 @@ class PlantLightScheduler:
             schedule["name"] = name
         async with self._lock:
             self._check_entity_assignments(set(schedule["entities"]))
+            self._assign_avatar(schedule)
             self.schedules.append(schedule)
             await self._async_save()
         await self.async_reconcile(schedule["entities"])
@@ -115,6 +135,8 @@ class PlantLightScheduler:
             }
             if name := data.get("name", previous.get("name")):
                 schedule["name"] = name
+            if "avatar" in previous:
+                schedule["avatar"] = previous["avatar"]
             self._check_entity_assignments(
                 set(schedule["entities"]) - previously_managed
             )
@@ -155,9 +177,24 @@ class PlantLightScheduler:
                 return index
         raise KeyError(schedule_id)
 
+    def _assign_avatar(self, schedule: Schedule) -> None:
+        """Draw an unused avatar and permanently reserve it."""
+        available = [
+            avatar for avatar in range(AVATAR_COUNT) if avatar not in self._used_avatars
+        ]
+        if available:
+            avatar = choice(available)
+            schedule["avatar"] = avatar
+            self._used_avatars.add(avatar)
+
     async def _async_save(self) -> None:
         """Write the current schedules to storage."""
-        await self._store.async_save({"schedules": self.schedules})
+        await self._store.async_save(
+            {
+                "schedules": self.schedules,
+                "used_avatars": sorted(self._used_avatars),
+            }
+        )
 
     async def _async_home_assistant_started(self, _event: Event) -> None:
         """Reconcile states once all integrations have started."""
@@ -215,4 +252,3 @@ class PlantLightScheduler:
                 {ATTR_ENTITY_ID: turn_off},
                 blocking=False,
             )
-

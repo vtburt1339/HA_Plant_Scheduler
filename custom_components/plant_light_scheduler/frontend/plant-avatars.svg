@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 256" width="640" height="512" role="img" aria-labelledby="title">
+  <title id="title">Plant Light Scheduler's twenty plant avatars</title>
+  <defs>
+    <g id="smile" fill="#35263d">
+      <circle cx="25.5" cy="47" r="2.45"/><circle cx="38.5" cy="47" r="2.45"/>
+      <path d="M29 49.5Q32 53 35 49.5" fill="none" stroke="#35263d" stroke-width="1.9" stroke-linecap="round"/>
+    </g>
+    <g id="happy" fill="#35263d">
+      <circle cx="25" cy="47" r="2.35"/><circle cx="39" cy="47" r="2.35"/>
+      <path d="M28.5 48.5h7c-.4 6-6.6 6-7 0Z"/>
+    </g>
+    <g id="wink" fill="#35263d">
+      <circle cx="25" cy="47" r="2.4"/>
+      <path d="M36 47q2.6-3.8 5 0m-11.5 3q2.5 3 5 0" fill="none" stroke="#35263d" stroke-width="1.9" stroke-linecap="round"/>
+    </g>
+
+    <!-- The numeric symbol IDs are stored on schedules. Keep each design at its ID. -->
+    <symbol id="plant-0" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#fff0f1"/>
+      <path d="M32 36V21" stroke="#396c40" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M32 24c-12 2-17-5-15-14 11-1 16 4 15 14Z" fill="#c8dc64" stroke="#527b44" stroke-width="2"/>
+      <path d="M32 24c-1-10 4-15 15-14 2 9-3 16-15 14Z" fill="#91c758" stroke="#527b44" stroke-width="2"/>
+      <path d="M15 36q0-3 4-3h26q4 0 4 3l-3 17q-1 5-5 5H23q-5 0-6-5Z" fill="#f7a9c3" stroke="#853651" stroke-width="2.5"/>
+      <circle cx="22" cy="51" r="2.6" fill="#ec789d"/><circle cx="42" cy="51" r="2.6" fill="#ec789d"/>
+      <use href="#smile" transform="translate(0 -2)"/>
+    </symbol>
+    <symbol id="plant-1" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#fff2cd"/>
+      <path d="M23 38q-8-7-9-22-1-7 3-4 12 12 15 26Z" fill="#168e77"/>
+      <path d="M27 37q-3-19 3-29 2-3 3 1 5 15 2 28Z" fill="#44b385"/>
+      <path d="M33 38q1-20 9-31 2-2 2 2 2 17-4 29Z" fill="#128065"/>
+      <path d="M39 38q2-14 11-22 3-2 2 3-2 15-8 21Z" fill="#3cae88"/>
+      <path d="M18 35h28l3 6a17 17 0 1 1-34 0Z" fill="#74b9f8"/>
+      <circle cx="21" cy="51" r="2.3" fill="#f9c6df"/><circle cx="43" cy="51" r="2.3" fill="#f9c6df"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-2" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#faeadc"/>
+      <path d="M24 37V21a8 8 0 1 1 16 0v16Z" fill="#419d6c"/>
+      <path d="M29 33h-7q-8 0-8-9v-4a4 4 0 0 1 8 0v5h7m10 8h4q8 0 8-9v-2a4 4 0 0 0-8 0v3h-4" fill="#419d6c"/>
+      <path d="m29 22 1 2m5-5 1 2m-2 7 1 2m-16-8 1 2" stroke="#e3f4b5" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M26 14q-6-4-2-8 4-1 6 4 2-6 6-4 4 4-3 8Z" fill="#ee7197"/>
+      <path d="M17 36h30l-4 20H21Z" fill="#eea15f" stroke="#935641" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M16 36h32" stroke="#935641" stroke-width="3" stroke-linecap="round"/>
+      <use href="#wink"/>
+    </symbol>
+    <symbol id="plant-3" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#eaf5dc"/>
+      <path d="m32 40 1-20m-2 11-9-9m12 12 10-13" stroke="#3b765c" stroke-width="2.7" fill="none"/>
+      <path d="M31 26C14 31 12 17 17 11l5 6-2-8c7-2 14 4 11 17Z" fill="#389064"/>
+      <path d="M32 28c-5-17 4-24 12-20l-4 8 8-6c8 12-3 21-16 18Z" fill="#217851"/>
+      <path d="m36 32 12-5 1 4-8 3 7 1c-2 6-9 6-12-3Z" fill="#4aaa6d"/>
+      <path d="M17 38q0-3 3-3h24q3 0 3 3v10q0 9-9 9H26q-9 0-9-9Z" fill="#f7d66d" stroke="#a37435" stroke-width="2.2"/>
+      <use href="#smile"/>
+    </symbol>
+    <symbol id="plant-4" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#efecff"/>
+      <path d="M31 37C17 32 11 23 14 20q9 1 19 12 10-11 19-12c3 5-4 13-19 17Z" fill="#5ba78b"/>
+      <path d="M31 34C20 26 18 13 24 11q7 6 9 19 3-13 10-19c6 1 3 15-10 24Z" fill="#7fc3a1"/>
+      <path d="M32 32c-6-7-5-17 0-23 6 6 7 16 0 23Z" fill="#9bd0ab"/>
+      <path d="M14 37q18 4 36 0-2 20-18 20-16 0-18-20Z" fill="#b293ee" stroke="#66548b" stroke-width="2.3"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-5" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#fff2e8"/>
+      <path d="M32 38V18" stroke="#438451" stroke-width="3" stroke-linecap="round"/>
+      <path d="M31 33q-10 1-13-8 10-1 13 8Zm2 1q10 0 13-9-9-1-13 9Z" fill="#66a858"/>
+      <g fill="#fffdf2" stroke="#e5a841" stroke-width="1.2">
+        <ellipse cx="32" cy="12" rx="4.7" ry="6"/><ellipse cx="40" cy="18" rx="6" ry="4.7"/>
+        <ellipse cx="32" cy="24" rx="4.7" ry="6"/><ellipse cx="24" cy="18" rx="6" ry="4.7"/>
+      </g>
+      <circle cx="32" cy="18" r="5.1" fill="#f5b838"/>
+      <path d="M17 36h30l-3 16q-1 5-6 5H26q-5 0-6-5Z" fill="#f3a28e" stroke="#974b52" stroke-width="2.3"/>
+      <use href="#wink"/>
+    </symbol>
+    <symbol id="plant-6" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#e4f6ed"/>
+      <path d="M32 36q-1-18-12-17-10 1-11 17t5 14m20-15q5-20 14-15 9 5 6 21" stroke="#318b62" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <path d="M27 23c-1-11-13-16-15-7-7 4 2 12 15 7Zm9 1c2-13 14-16 15-8 5 5-4 11-15 8ZM13 33c-9-5-12 3-7 5-2 5 5 7 7-5Zm38 5c2-9 10-9 9-3 4 4-2 8-9 3Z" fill="#59ae68"/>
+      <path d="M17 35h30l-3 19q-1 3-5 3H25q-4 0-5-3Z" fill="#73c9b2" stroke="#29786d" stroke-width="2.2"/>
+      <use href="#smile"/>
+    </symbol>
+    <symbol id="plant-7" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#f8eaf6"/>
+      <path d="M31 37V15m0 14 13-8m-12 8-12-8" fill="none" stroke="#664d6a" stroke-width="2.5"/>
+      <path d="M31 19c-9-5-6-14 0-14 7 2 9 11 0 14Z" fill="#662f65"/>
+      <path d="M29 28c-12 3-20-5-14-12 8-3 16 3 14 12Z" fill="#aa537f"/>
+      <path d="M33 29c-1-10 8-18 16-15 5 9-5 17-16 15Z" fill="#8b3d73"/>
+      <path d="M18 35h28v15q0 7-7 7H25q-7 0-7-7Z" fill="#f4b6d4" stroke="#7d4169" stroke-width="2.4"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-8" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#f5f3d9"/>
+      <path d="m23 36 2-23m8 23V7m8 29-1-18" stroke="#75a351" stroke-width="4.3" stroke-linecap="round"/>
+      <path d="M22 24h5m4-8h5m-5 11h5m2 1h5" stroke="#435f46" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M30 18q-13-1-15-10 12 1 15 10Zm8 0q3-10 13-10-2 9-13 10Zm4 10q3-9 11-9-3 8-11 9Z" fill="#4d8e57"/>
+      <path d="M14 34h36l-4 21q-1 3-4 3H22q-3 0-4-3Z" fill="#f4d686" stroke="#987847" stroke-width="2.3"/>
+      <path d="M16 39h32" stroke="#987847" stroke-width="1.8"/>
+      <use href="#smile" transform="translate(0 1)"/>
+    </symbol>
+    <symbol id="plant-9" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#e9f5e1"/>
+      <path d="M32 37q-4-18-18-24m18 24q3-20 18-26m-18 25V13" fill="none" stroke="#347952" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M20 18c-8 1-11-5-10-9 7-1 11 3 10 9Zm7 7c-7 2-15 0-14-4 4-4 10-1 14 4Zm3 7c-7 1-13 0-15-5 6-3 12 0 15 5Zm14-13c-2-6 3-11 10-10 1 5-4 10-10 10Zm-6 8c2-7 10-11 16-8 0 5-9 9-16 8Zm-4 6c3-6 10-8 16-5-2 5-10 6-16 5Z" fill="#68aa5b"/>
+      <path d="M32 23c-7-5-6-12 0-17 6 5 7 12 0 17Z" fill="#45965e"/>
+      <path d="M15 37q17-5 34 0l-5 15q-2 5-7 5H27q-5 0-7-5Z" fill="#9fcdb9" stroke="#507567" stroke-width="2.2"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-10" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#fff0e4"/>
+      <path d="m31 38 3-22m-2 15-11-9m13 8 10-8" stroke="#557150" stroke-width="2.4" fill="none"/>
+      <path d="M34 23c-7-4-8-13 3-17 7 7 4 14-3 17Z" fill="#eab84a"/>
+      <path d="M29 30c-11 1-17-5-15-14 9-2 16 4 15 14Z" fill="#d66c73"/>
+      <path d="M35 31c1-10 8-17 16-14 2 10-6 14-16 14Z" fill="#6ea65d"/>
+      <path d="M16 37h32l-3 15q-1 5-6 5H25q-5 0-6-5Z" fill="#f4b65b" stroke="#8b5740" stroke-width="2.3"/>
+      <circle cx="22" cy="51" r="2.2" fill="#e68768"/><circle cx="42" cy="51" r="2.2" fill="#e68768"/>
+      <use href="#wink"/>
+    </symbol>
+    <symbol id="plant-11" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#e8f7e4"/>
+      <path d="M31 36q4-9 1-15" fill="none" stroke="#348552" stroke-width="3" stroke-linecap="round"/>
+      <path d="M32 23c-15-4-12-16-6-16 4 0 6 3 6 5 2-5 8-7 11-3 5 7-7 13-11 14Z" fill="#4ca664"/>
+      <path d="M32 24c-7 10-17 9-18 4-1-3 1-6 4-7-6-2-6-9-1-11 7-2 13 8 15 14Z" fill="#71bc68"/>
+      <path d="M32 24c7 11 17 10 18 4 1-4-2-6-5-7 5-2 6-8 1-10-7-2-12 7-14 13Z" fill="#60b96b"/>
+      <path d="M17 35h30l2 6q1 16-17 16T15 41Z" fill="#8fb8f1" stroke="#4e73a9" stroke-width="2.2"/>
+      <use href="#smile"/>
+    </symbol>
+    <symbol id="plant-12" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#f3eafa"/>
+      <path d="m27 37-7-17m13 17V12m3 25 8-16" stroke="#5d936a" stroke-width="2" stroke-linecap="round"/>
+      <g fill="#9466bf">
+        <ellipse cx="20" cy="19" rx="4.5" ry="5.5" transform="rotate(-23 20 19)"/>
+        <ellipse cx="18" cy="13" rx="3.5" ry="4" transform="rotate(-23 18 13)"/>
+        <ellipse cx="33" cy="15" rx="4.5" ry="5"/><ellipse cx="33" cy="8" rx="3.6" ry="4"/>
+        <ellipse cx="44" cy="20" rx="4.5" ry="5" transform="rotate(26 44 20)"/>
+        <ellipse cx="47" cy="14" rx="3.5" ry="4" transform="rotate(26 47 14)"/>
+      </g>
+      <path d="M16 37h32l-4 20H20Z" fill="#dfbaf0" stroke="#765b88" stroke-width="2.3" stroke-linejoin="round"/>
+      <path d="M16 37h32" stroke="#765b88" stroke-width="3" stroke-linecap="round"/>
+      <use href="#smile"/>
+    </symbol>
+    <symbol id="plant-13" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#fff4cc"/>
+      <path d="M32 39V19" stroke="#488348" stroke-width="3"/>
+      <path d="M32 35q-11 2-15-8 11-1 15 8Zm1-1q3-8 13-8-2 8-13 8Z" fill="#6caa58"/>
+      <path d="m32 5 4 5 6-2 1 6 6 3-4 5 2 6-6 1-3 5-6-3-6 3-3-5-6-1 2-6-4-5 6-3 1-6 6 2Z" fill="#f4bd35"/>
+      <circle cx="32" cy="19" r="9" fill="#89553b"/>
+      <circle cx="29" cy="18" r="1.25" fill="#ffe5a2"/><circle cx="35" cy="18" r="1.25" fill="#ffe5a2"/>
+      <path d="M17 37h30l-4 19H21Z" fill="#df8d69" stroke="#985642" stroke-width="2.3" stroke-linejoin="round"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-14" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#e8f3e3"/>
+      <path d="M32 38V18m0 11-11-9m12 8 12-9" fill="none" stroke="#526e46" stroke-width="2.8" stroke-linecap="round"/>
+      <ellipse cx="32" cy="14" rx="6" ry="9.5" fill="#6cab71"/>
+      <ellipse cx="19" cy="20" rx="9" ry="6" transform="rotate(34 19 20)" fill="#408b61"/>
+      <ellipse cx="45" cy="19" rx="9" ry="6" transform="rotate(-39 45 19)" fill="#418d68"/>
+      <path d="M18 35h28l2 8q1 14-16 14T16 43Z" fill="#e4a184" stroke="#965f55" stroke-width="2.2"/>
+      <use href="#wink"/>
+    </symbol>
+    <symbol id="plant-15" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#feeaf4"/>
+      <path d="M32 38V21" stroke="#638446" stroke-width="3"/>
+      <path d="M31 36q-10-1-11-13 8 2 11 13Zm2 0q9-3 11-12-9 1-11 12Z" fill="#70a75b"/>
+      <path d="M21 12l7 3 4-8 4 8 7-3q2 16-11 16-13 0-11-16Z" fill="#f277a8" stroke="#aa4b80" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M16 35h32l-4 17q-1 5-6 5H26q-5 0-6-5Z" fill="#f5bc76" stroke="#af704f" stroke-width="2.3"/>
+      <circle cx="22" cy="51" r="2.3" fill="#e89076"/><circle cx="42" cy="51" r="2.3" fill="#e89076"/>
+      <use href="#smile"/>
+    </symbol>
+    <symbol id="plant-16" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#ecf3dc"/>
+      <path d="M30 39q-5-8 4-14t2-12m-4 14-13-5m17 1 10-6" fill="none" stroke="#986d57" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16 23q-6 0-6-5 1-5 7-5 4-6 11-3 0 9-4 13Z" fill="#6cb26e"/>
+      <path d="M26 13q-1-8 7-8 7-4 12 3 7 5-1 8H31Z" fill="#409467"/>
+      <path d="M38 21q-4-6 3-8 3-6 9-3 7 1 6 7-2 4-7 4Z" fill="#66ab56"/>
+      <path d="M12 39h40l-3 12q-1 6-7 6H22q-6 0-7-6Z" fill="#b2a3e2" stroke="#665579" stroke-width="2.3"/>
+      <use href="#happy" transform="translate(0 1)"/>
+    </symbol>
+    <symbol id="plant-17" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#edf6dc"/>
+      <path d="M28 38q-13-6-16-22 10 2 17 15-5-16 0-23 7 9 5 22 5-13 14-18 1 17-13 25Z" fill="#418f64"/>
+      <path d="M30 38q-5-14-12-14 1 11 12 14Zm4 0q4-12 13-15-2 12-13 15Z" fill="#80bd79"/>
+      <path d="M17 36h30l-4 20H21Z" fill="#f2ac92" stroke="#9e5e57" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M17 38h30" stroke="#9e5e57" stroke-width="1.5"/>
+      <use href="#happy"/>
+    </symbol>
+    <symbol id="plant-18" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#e3f5f6"/>
+      <path d="M30 34q-3-17-14-13-8 2-7 19t2 12m24-19q3-16 12-11 8 4 8 25" fill="none" stroke="#468970" stroke-width="2.5" stroke-linecap="round"/>
+      <g fill="#7dbc83" stroke="#468970" stroke-width="1.1">
+        <circle cx="11" cy="23" r="3.2"/><circle cx="17" cy="20" r="3.4"/><circle cx="23" cy="23" r="3.8"/>
+        <circle cx="8" cy="30" r="3.4"/><circle cx="8" cy="38" r="3.8"/><circle cx="9" cy="47" r="3.6"/><circle cx="12" cy="54" r="3"/>
+        <circle cx="43" cy="21" r="3.8"/><circle cx="49" cy="24" r="3.4"/><circle cx="53" cy="30" r="3.6"/>
+        <circle cx="55" cy="38" r="3.6"/><circle cx="55" cy="46" r="3.3"/>
+        <circle cx="31" cy="26" r="4.5"/><circle cx="36" cy="24" r="3.7"/><circle cx="31" cy="18" r="3.4"/>
+      </g>
+      <path d="M17 34h30l-4 20q-1 3-5 3H26q-4 0-5-3Z" fill="#82c8da" stroke="#4c7e96" stroke-width="2.2"/>
+      <use href="#wink"/>
+    </symbol>
+    <symbol id="plant-19" viewBox="0 0 64 64">
+      <rect x="2" y="2" width="60" height="60" rx="15" fill="#f6ecfd"/>
+      <path d="M32 37q-2-13 1-21m-1 15-13-9m14 9 12-8" fill="none" stroke="#4a8065" stroke-width="2.5"/>
+      <path d="M33 20c-2-7-7-3-8-8-2-5 5-9 8-4 4-6 11-3 10 2-1 4-6 7-10 10Z" fill="#559e78"/>
+      <path d="M28 28c-3-11-11-15-15-10-5 7 4 14 15 10Zm9 1c2-11 10-15 15-10 5 6-4 13-15 10Z" fill="#7cb686"/>
+      <path d="M16 36h32l2 9q0 12-18 12-18 0-18-12Z" fill="#dda8d7" stroke="#855e8d" stroke-width="2.2"/>
+      <circle cx="22" cy="51" r="2.3" fill="#efc4df"/><circle cx="42" cy="51" r="2.3" fill="#efc4df"/>
+      <use href="#smile"/>
+    </symbol>
+  </defs>
+  <use href="#plant-0" x="0" y="0" width="64" height="64"/>
+  <use href="#plant-1" x="64" y="0" width="64" height="64"/>
+  <use href="#plant-2" x="128" y="0" width="64" height="64"/>
+  <use href="#plant-3" x="192" y="0" width="64" height="64"/>
+  <use href="#plant-4" x="256" y="0" width="64" height="64"/>
+  <use href="#plant-5" x="0" y="64" width="64" height="64"/>
+  <use href="#plant-6" x="64" y="64" width="64" height="64"/>
+  <use href="#plant-7" x="128" y="64" width="64" height="64"/>
+  <use href="#plant-8" x="192" y="64" width="64" height="64"/>
+  <use href="#plant-9" x="256" y="64" width="64" height="64"/>
+  <use href="#plant-10" x="0" y="128" width="64" height="64"/>
+  <use href="#plant-11" x="64" y="128" width="64" height="64"/>
+  <use href="#plant-12" x="128" y="128" width="64" height="64"/>
+  <use href="#plant-13" x="192" y="128" width="64" height="64"/>
+  <use href="#plant-14" x="256" y="128" width="64" height="64"/>
+  <use href="#plant-15" x="0" y="192" width="64" height="64"/>
+  <use href="#plant-16" x="64" y="192" width="64" height="64"/>
+  <use href="#plant-17" x="128" y="192" width="64" height="64"/>
+  <use href="#plant-18" x="192" y="192" width="64" height="64"/>
+  <use href="#plant-19" x="256" y="192" width="64" height="64"/>
+</svg>

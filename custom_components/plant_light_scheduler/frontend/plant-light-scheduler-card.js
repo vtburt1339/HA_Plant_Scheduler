@@ -1,4 +1,5 @@
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.4.0";
+const AVATAR_SPRITE = `/plant_light_scheduler/plant-avatars.svg?v=${CARD_VERSION}`;
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -360,13 +361,19 @@ class PlantLightSchedulerCard extends HTMLElement {
   _renderSchedule(schedule) {
     const enabled = schedule.enabled !== false;
     const entityCount = schedule.entities.length;
+    const avatar = schedule.avatar;
+    const hasAvatar = Number.isInteger(avatar) && avatar >= 0 && avatar < 20;
     return `
       <div class="schedule-row ${enabled ? "" : "disabled"}">
         <button class="schedule-main" data-action="edit" data-id="${escapeHtml(
           schedule.id
         )}" aria-label="Edit ${escapeHtml(this._scheduleName(schedule))}"
           aria-describedby="status-${escapeHtml(schedule.id)}">
-          <span class="schedule-icon"><ha-icon icon="mdi:lightbulb-fluorescent-tube-outline"></ha-icon></span>
+          <span class="schedule-icon ${hasAvatar ? "has-avatar" : ""}" aria-hidden="true">
+            ${hasAvatar
+              ? `<svg viewBox="0 0 64 64" focusable="false"><use href="${AVATAR_SPRITE}#plant-${avatar}"></use></svg>`
+              : '<ha-icon icon="mdi:lightbulb-fluorescent-tube-outline"></ha-icon>'}
+          </span>
           <span class="schedule-details">
             <span class="schedule-name">${escapeHtml(
               this._scheduleName(schedule)
@@ -1120,6 +1127,8 @@ class PlantLightSchedulerCard extends HTMLElement {
         background: color-mix(in srgb, var(--scheduler-on) 14%, transparent);
       }
       .schedule-icon ha-icon { --mdc-icon-size: 23px; }
+      .schedule-icon.has-avatar { background: transparent; }
+      .schedule-icon svg { display: block; width: 100%; height: 100%; }
       .schedule-details { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
       .schedule-name {
         overflow: hidden;
