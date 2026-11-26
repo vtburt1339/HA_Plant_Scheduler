@@ -48,13 +48,14 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.1
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.3
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.
 
 ## Scheduling behavior
 
+- Use the clock button beside **On** or **Off** to pick an hour and minute. You can also type a 24-hour time, such as `08:00` or `0800`.
 - The **on** minute is included and the **off** minute is excluded. `08:00 → 21:00` is on starting at 08:00 and off starting at 21:00.
 - An overnight range such as `18:00 → 06:00` works across midnight.
 - Home Assistant reconciles enabled schedules at startup and when a schedule is saved.

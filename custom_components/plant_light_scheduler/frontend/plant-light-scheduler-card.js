@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.1";
+const CARD_VERSION = "0.1.3";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -13,6 +13,17 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+
+// Accept compact entry from numeric keyboards that do not have a colon key.
+function normalizeTime(value) {
+  const match = /^([0-9]{1,2}):?([0-9]{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, hour, minute] = match;
+  if (Number(hour) > 23 || Number(minute) > 59) return null;
+  return `${hour.padStart(2, "0")}:${minute}`;
+}
+
+const twoDigits = (value) => String(value).padStart(2, "0");
 
 class PlantLightSchedulerCard extends HTMLElement {
   static getConfigElement() {
@@ -37,6 +48,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     this.shadowRoot.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || !this._draft) return;
       event.stopPropagation();
+      if (this._closeTimePicker(true)) return;
       const picker = this.shadowRoot.querySelector(".entity-picker[open]");
       if (picker) {
         picker.open = false;
@@ -113,14 +125,15 @@ class PlantLightSchedulerCard extends HTMLElement {
 
   _formatTime(value) {
     const [hour, minute] = value.split(":").map(Number);
-    const date = new Date(2000, 0, 1, hour, minute);
+    return this._timeFormatter().format(new Date(2000, 0, 1, hour, minute));
+  }
+
+  _timeFormatter() {
     const configuredFormat = this._hass?.locale?.time_format;
     const options = { hour: "numeric", minute: "2-digit" };
     if (configuredFormat === "12") options.hour12 = true;
     if (configuredFormat === "24") options.hour12 = false;
-    return new Intl.DateTimeFormat(this._hass?.locale?.language, options).format(
-      date
-    );
+    return new Intl.DateTimeFormat(this._hass?.locale?.language, options);
   }
 
   _render() {
@@ -318,17 +331,11 @@ class PlantLightSchedulerCard extends HTMLElement {
               <div class="entity-chips"></div>
             </div>
             <div class="time-grid">
-              <label class="time-field">
-                <span>On</span>
-                <span class="time-control"><input id="on-time" type="time"
-                  value="${escapeHtml(this._draft.on)}" required></span>
-              </label>
-              <label class="time-field">
-                <span>Off</span>
-                <span class="time-control"><input id="off-time" type="time"
-                  value="${escapeHtml(this._draft.off)}" required></span>
-              </label>
+              ${this._timeFieldTemplate("on", "On")}
+              ${this._timeFieldTemplate("off", "Off")}
             </div>
+            <section class="time-picker" id="schedule-time-picker" aria-labelledby="time-picker-title" hidden></section>
+            <p class="time-hint" id="time-format-hint">To type a time, use 24-hour format (08:00 or 2100).</p>
             <div class="validation-message" role="alert"></div>
           </div>
           <div class="dialog-actions">
@@ -343,6 +350,24 @@ class PlantLightSchedulerCard extends HTMLElement {
             }>${this._saving ? "Saving…" : "Save"}</button>
           </div>
         </section>
+      </div>`;
+  }
+
+  _timeFieldTemplate(time, label) {
+    return `
+      <div class="time-field">
+        <label for="${time}-time">${label}</label>
+        <div class="time-control">
+          <input id="${time}-time" type="text" inputmode="numeric"
+            autocomplete="off" spellcheck="false" aria-describedby="time-format-hint"
+            value="${escapeHtml(this._draft[time])}" required>
+          <button type="button" class="time-picker-trigger" data-time-picker="${time}"
+            aria-label="Choose ${time} time" aria-expanded="false"
+            aria-controls="schedule-time-picker" title="Choose ${time} time"
+            ${this._saving ? "disabled" : ""}>
+            <ha-icon icon="mdi:clock-outline"></ha-icon>
+          </button>
+        </div>
       </div>`;
   }
 
@@ -366,12 +391,23 @@ class PlantLightSchedulerCard extends HTMLElement {
   _bindDialogEvents() {
     this._bindSwitchPicker();
 
+    this.shadowRoot.querySelectorAll("[data-time-picker]").forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        const wasOpen = trigger.getAttribute("aria-expanded") === "true";
+        this._closeTimePicker(wasOpen);
+        if (!wasOpen) this._openTimePicker(trigger);
+      });
+    });
     for (const time of ["on", "off"]) {
       const input = this.shadowRoot.querySelector(`#${time}-time`);
       if (!input) continue;
-      const update = () => { this._draft[time] = input.value; };
-      input.addEventListener("input", update);
-      input.addEventListener("change", update);
+      input.addEventListener("input", () => {
+        if (!input.isConnected || !this._draft) return;
+        this._draft[time] = input.value;
+        input.removeAttribute("aria-invalid");
+        this._showValidation("");
+      });
+      input.addEventListener("focus", () => this._closeTimePicker());
     }
 
     this.shadowRoot.querySelectorAll('[data-action="cancel"]').forEach((button) =>
@@ -400,6 +436,75 @@ class PlantLightSchedulerCard extends HTMLElement {
     this.shadowRoot
       .querySelector('[data-action="delete"]')
       ?.addEventListener("click", () => this._deleteDraft());
+  }
+
+  _openTimePicker(trigger) {
+    const time = trigger.dataset.timePicker;
+    const input = this.shadowRoot.querySelector(`#${time}-time`);
+    const panel = this.shadowRoot.querySelector("#schedule-time-picker");
+    const switchPicker = this.shadowRoot.querySelector(".entity-picker");
+    switchPicker.open = false;
+
+    const current = normalizeTime(input.value) ?? (time === "on" ? "08:00" : "21:00");
+    const [hour, minute] = current.split(":").map(Number);
+    const { hour12 } = this._timeFormatter().resolvedOptions();
+    const hours = Array.from({ length: hour12 ? 12 : 24 }, (_, i) => hour12 ? i + 1 : i);
+    const minutes = Array.from({ length: 60 }, (_, i) => i);
+    panel.innerHTML = `
+      <h3 id="time-picker-title">Set ${time} time</h3>
+      <div class="time-picker-grid">
+        ${this._timeChoices("hour", "Hour", hours,
+          hour12 ? hour % 12 || 12 : hour, hour12 ? String : twoDigits)}
+        ${this._timeChoices("minute", "Minute", minutes, minute, twoDigits)}
+      </div>
+      ${hour12 ? this._timeChoices("period", "Period", ["AM", "PM"], hour < 12 ? "AM" : "PM") : ""}
+      <div class="time-picker-actions">
+        <button type="button" class="secondary-button" data-time-cancel>Cancel</button>
+        <button type="button" class="save-button" data-time-apply>Use time</button>
+      </div>`;
+    trigger.setAttribute("aria-expanded", "true");
+    panel.hidden = false;
+    this.shadowRoot.querySelector('[data-action="save"]').disabled = true;
+    for (const list of panel.querySelectorAll(".time-choice-list")) {
+      const selected = list.querySelector(":checked").parentElement;
+      list.scrollTop = selected.offsetTop - (list.clientHeight - selected.offsetHeight) / 2;
+    }
+    panel.querySelector('[name="time-hour"]:checked').focus({ preventScroll: true });
+    panel.scrollIntoView({ block: "nearest" });
+
+    panel.querySelector("[data-time-cancel]").addEventListener("click", () => this._closeTimePicker(true));
+    panel.querySelector("[data-time-apply]").addEventListener("click", () => {
+      const selectedHour = Number(panel.querySelector('[name="time-hour"]:checked').value);
+      const selectedMinute = panel.querySelector('[name="time-minute"]:checked').value;
+      const period = panel.querySelector('[name="time-period"]:checked')?.value;
+      const hour24 = hour12 ? (selectedHour % 12) + (period === "PM" ? 12 : 0) : selectedHour;
+      input.value = `${twoDigits(hour24)}:${twoDigits(selectedMinute)}`;
+      input.dispatchEvent(new Event("input"));
+      this._closeTimePicker(true);
+    });
+  }
+
+  _timeChoices(name, label, values, selected, format = String) {
+    const choices = values.map((value) => `
+      <label class="time-choice">
+        <input type="radio" name="time-${name}" value="${value}" ${value === selected ? "checked" : ""}>
+        <span>${format(value)}</span>
+      </label>`).join("");
+    return `<fieldset>
+      <legend>${label}</legend>
+      <div class="${name === "period" ? "time-period" : "time-choice-list"}">${choices}</div>
+    </fieldset>`;
+  }
+
+  _closeTimePicker(restoreFocus = false) {
+    const panel = this.shadowRoot.querySelector(".time-picker:not([hidden])");
+    if (!panel) return false;
+    const trigger = this.shadowRoot.querySelector('[data-time-picker][aria-expanded="true"]');
+    panel.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    this.shadowRoot.querySelector('[data-action="save"]').disabled = this._saving;
+    if (restoreFocus) trigger.focus();
+    return true;
   }
 
   _switchesInUse() {
@@ -451,6 +556,7 @@ class PlantLightSchedulerCard extends HTMLElement {
 
     picker.addEventListener("toggle", () => {
       if (picker.isConnected && picker.open && this._draft) {
+        this._closeTimePicker();
         renderOptions();
         search.focus();
       }
@@ -486,14 +592,20 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   async _saveDraft() {
-    const on = this.shadowRoot.querySelector("#on-time")?.value;
-    const off = this.shadowRoot.querySelector("#off-time")?.value;
+    if (!this._draft || this._saving) return;
     if (!this._draft.entities.length) {
       this._showValidation("Select at least one switch.");
       return;
     }
+    const onInput = this.shadowRoot.querySelector("#on-time");
+    const offInput = this.shadowRoot.querySelector("#off-time");
+    const on = normalizeTime(onInput.value);
+    const off = normalizeTime(offInput.value);
     if (!on || !off) {
-      this._showValidation("Choose both an on time and an off time.");
+      const input = on ? offInput : onInput;
+      input.setAttribute("aria-invalid", "true");
+      this._showValidation(`Enter a valid ${on ? "off" : "on"} time using 24-hour time.`);
+      input.focus();
       return;
     }
     if (on === off) {
@@ -895,17 +1007,16 @@ class PlantLightSchedulerCard extends HTMLElement {
       .time-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
       .time-field { display: flex; flex-direction: column; min-width: 0; gap: 7px; font-size: 14px; font-weight: 500; }
       .time-control {
-        display: block;
-        overflow: hidden;
-        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding-inline: 14px 4px;
         border: 1px solid var(--divider-color);
         border-radius: 12px;
       }
       .time-control input {
-        display: block;
-        width: 100%;
+        flex: 1;
         min-width: 0;
-        max-width: 100%;
         height: 50px;
         appearance: none;
         padding: 0;
@@ -917,6 +1028,76 @@ class PlantLightSchedulerCard extends HTMLElement {
         font-size: 16px;
       }
       .time-control:focus-within { outline: 2px solid var(--scheduler-accent); outline-offset: -1px; }
+      .time-picker-trigger {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--secondary-text-color);
+        cursor: pointer;
+      }
+      .time-picker-trigger:hover, .time-picker-trigger[aria-expanded="true"] {
+        color: var(--scheduler-accent);
+        background: var(--secondary-background-color);
+      }
+      .time-picker-trigger:focus-visible, .time-choice input:focus-visible + span {
+        outline: 2px solid var(--scheduler-accent);
+        outline-offset: -2px;
+      }
+      .time-picker {
+        margin-top: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+      }
+      .time-picker h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
+      .time-picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .time-picker fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+      .time-picker legend { margin-bottom: 5px; padding: 0; color: var(--secondary-text-color); font-size: 12px; }
+      .time-picker > fieldset { margin-top: 10px; }
+      .time-choice-list {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        max-height: 132px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+      }
+      .time-period { display: flex; gap: 4px; }
+      .time-choice { position: relative; cursor: pointer; }
+      .time-choice input {
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-start: 50%;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .time-choice span {
+        display: grid;
+        place-items: center;
+        min-width: 40px;
+        min-height: 44px;
+        border-radius: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+      .time-choice:hover span { background: var(--secondary-background-color); }
+      .time-choice input:checked + span {
+        color: var(--scheduler-accent);
+        background: color-mix(in srgb, var(--scheduler-accent) 16%, transparent);
+        font-weight: 600;
+      }
+      .time-picker-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
+      .time-hint { margin-top: 8px; color: var(--secondary-text-color); font-size: 12px; }
       .validation-message { min-height: 18px; margin-top: 10px; color: var(--error-color); font-size: 12px; }
       .dialog-actions {
         display: flex;
@@ -974,7 +1155,9 @@ class PlantLightSchedulerCard extends HTMLElement {
         .dialog-scrim { align-items: end; padding: 0; }
         .dialog { width: 100%; max-height: 92vh; border-radius: 28px 28px 0 0; }
         .time-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+        .time-choice-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .dialog-actions { position: sticky; bottom: 0; background: var(--card-background-color, #fff); }
+        .dialog:has(.time-picker:not([hidden])) .dialog-actions { position: static; }
         .confirm-dialog { width: 100%; border-radius: 28px 28px 0 0; }
       }
     `;
