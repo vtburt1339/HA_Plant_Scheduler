@@ -48,7 +48,7 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.3
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.1.5
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.

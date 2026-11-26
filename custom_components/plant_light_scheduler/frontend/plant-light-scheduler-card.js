@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.3";
+const CARD_VERSION = "0.1.5";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -24,6 +24,10 @@ function normalizeTime(value) {
 }
 
 const twoDigits = (value) => String(value).padStart(2, "0");
+const minutesSinceMidnight = (value) => {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+};
 
 class PlantLightSchedulerCard extends HTMLElement {
   static getConfigElement() {
@@ -68,17 +72,31 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   set hass(hass) {
-    const firstAssignment = !this._hass;
     this._hass = hass;
-    if (firstAssignment && this.isConnected) this._initialize();
+    if (!this.isConnected) return;
+    if (this._initialized) this._refreshStatuses();
+    else this._initialize();
   }
 
   getCardSize() {
-    return Math.max(3, this._schedules.length * 2 + 2);
+    return Math.max(3, this._schedules.length * 3 + 2);
   }
 
   connectedCallback() {
     if (this._hass) this._initialize();
+    this._tickStatuses();
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._statusTimer);
+  }
+
+  _tickStatuses() {
+    this._refreshStatuses();
+    this._statusTimer = setTimeout(
+      () => this._tickStatuses(),
+      60_000 - (Date.now() % 60_000)
+    );
   }
 
   _initialize() {
@@ -129,11 +147,67 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   _timeFormatter() {
-    const configuredFormat = this._hass?.locale?.time_format;
+    const { language, time_format: format } = this._hass?.locale ?? {};
+    const cached = this._displayTimeFormatter;
+    if (cached && cached.language === language && cached.format === format) {
+      return cached.formatter;
+    }
     const options = { hour: "numeric", minute: "2-digit" };
-    if (configuredFormat === "12") options.hour12 = true;
-    if (configuredFormat === "24") options.hour12 = false;
-    return new Intl.DateTimeFormat(this._hass?.locale?.language, options);
+    if (format === "12") options.hour12 = true;
+    if (format === "24") options.hour12 = false;
+    const formatter = new Intl.DateTimeFormat(language, options);
+    this._displayTimeFormatter = { language, format, formatter };
+    return formatter;
+  }
+
+  _localMinute() {
+    const timeZone = this._hass?.config?.time_zone;
+    if (!this._clockFormatter || timeZone !== this._clockTimeZone) {
+      this._clockTimeZone = timeZone;
+      this._clockFormatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      });
+    }
+    return minutesSinceMidnight(this._clockFormatter.format(new Date()));
+  }
+
+  _currentSwitchStatus(schedule) {
+    const states = schedule.entities.map((id) => this._hass?.states?.[id]?.state);
+    const on = states.includes("on");
+    const off = states.includes("off");
+    if (on && off) return "Mixed";
+    if (!on && !off) return "Unavailable";
+    if (states.some((state) => state !== "on" && state !== "off")) {
+      return on ? "On (some unavailable)" : "Off (some unavailable)";
+    }
+    return on ? "On" : "Off";
+  }
+
+  _nextAction(schedule, now) {
+    if (schedule.enabled === false) return "Paused";
+    const minutesUntil = (time) =>
+      (minutesSinceMidnight(time) - now + 1440) % 1440 || 1440;
+    return minutesUntil(schedule.on) < minutesUntil(schedule.off)
+      ? `On @ ${this._formatTime(schedule.on)}`
+      : `Off @ ${this._formatTime(schedule.off)}`;
+  }
+
+  _refreshStatuses() {
+    const rows = this.shadowRoot.querySelectorAll(".schedule-status");
+    if (!rows.length) return;
+    const now = this._localMinute();
+    rows.forEach((row, index) => {
+      const schedule = this._schedules[index];
+      const current = row.querySelector(".current-value");
+      const next = row.querySelector(".next-value");
+      const currentText = this._currentSwitchStatus(schedule);
+      const nextText = this._nextAction(schedule, now);
+      if (current.textContent !== currentText) current.textContent = currentText;
+      if (next.textContent !== nextText) next.textContent = nextText;
+    });
   }
 
   _render() {
@@ -160,6 +234,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       <div class="dialog-host"></div>
     `;
     this._bindCardEvents();
+    this._refreshStatuses();
     if (this._draft) this._renderDialog();
   }
 
@@ -201,7 +276,8 @@ class PlantLightSchedulerCard extends HTMLElement {
       <div class="schedule-row ${enabled ? "" : "disabled"}">
         <button class="schedule-main" data-action="edit" data-id="${escapeHtml(
           schedule.id
-        )}" aria-label="Edit ${escapeHtml(this._scheduleName(schedule))}">
+        )}" aria-label="Edit ${escapeHtml(this._scheduleName(schedule))}"
+          aria-describedby="status-${escapeHtml(schedule.id)}">
           <span class="schedule-icon"><ha-icon icon="mdi:lightbulb-fluorescent-tube-outline"></ha-icon></span>
           <span class="schedule-details">
             <span class="schedule-name">${escapeHtml(
@@ -211,6 +287,10 @@ class PlantLightSchedulerCard extends HTMLElement {
               <strong>ON</strong> ${escapeHtml(this._formatTime(schedule.on))}
               <span class="dot" aria-hidden="true"></span>
               <strong>OFF</strong> ${escapeHtml(this._formatTime(schedule.off))}
+            </span>
+            <span class="schedule-status" id="status-${escapeHtml(schedule.id)}">
+              <span><strong>Currently:</strong> <span class="current-value"></span></span>
+              <span><strong>Next Action:</strong> <span class="next-value"></span></span>
             </span>
             ${
               entityCount > 1
@@ -805,6 +885,15 @@ class PlantLightSchedulerCard extends HTMLElement {
         letter-spacing: .45px;
       }
       .dot { width: 3px; height: 3px; margin: 0 3px; border-radius: 50%; background: currentColor; }
+      .schedule-status {
+        display: grid;
+        gap: 2px;
+        margin-top: 3px;
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .schedule-status strong { color: var(--primary-text-color); font-weight: 600; }
       .entity-count { color: var(--secondary-text-color); font-size: 11px; }
       .enable-switch { justify-self: center; }
       .card-footer {
@@ -975,26 +1064,27 @@ class PlantLightSchedulerCard extends HTMLElement {
         white-space: nowrap;
       }
       .no-switches { padding: 10px; color: var(--secondary-text-color); }
-      .entity-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 30px; margin-top: 12px; }
+      .entity-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; margin-top: 12px; }
       .entity-chip {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         max-width: 100%;
-        min-height: 32px;
-        padding: 3px 4px 3px 10px;
-        border-radius: 17px;
+        min-height: 38px;
+        padding: 4px 5px 4px 12px;
+        border-radius: 20px;
         color: var(--primary-text-color);
         background: var(--secondary-background-color);
-        font-size: 12px;
+        font-size: 14px;
       }
       .entity-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .entity-chip > ha-icon { flex: none; color: var(--secondary-text-color); --mdc-icon-size: 16px; }
+      .entity-chip > ha-icon { flex: none; color: var(--secondary-text-color); --mdc-icon-size: 18px; }
       .entity-chip button {
         display: grid;
         place-items: center;
-        width: 26px;
-        height: 26px;
+        flex: none;
+        width: 30px;
+        height: 30px;
         padding: 0;
         border: 0;
         border-radius: 50%;
@@ -1002,7 +1092,7 @@ class PlantLightSchedulerCard extends HTMLElement {
         cursor: pointer;
       }
       .entity-chip button:hover { background: var(--divider-color); }
-      .entity-chip button ha-icon { --mdc-icon-size: 15px; }
+      .entity-chip button ha-icon { --mdc-icon-size: 18px; }
       .selection-hint { color: var(--secondary-text-color); font-size: 12px; font-style: italic; }
       .time-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
       .time-field { display: flex; flex-direction: column; min-width: 0; gap: 7px; font-size: 14px; font-weight: 500; }
