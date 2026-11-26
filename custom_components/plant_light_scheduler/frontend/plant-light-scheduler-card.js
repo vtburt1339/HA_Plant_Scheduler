@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.8";
+const CARD_VERSION = "0.1.9";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -49,6 +49,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     this._draft = null;
     this._confirmingDelete = false;
     this._initialized = false;
+    this._repositionTimePicker = () => this._positionTimePicker();
     this.shadowRoot.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || !this._draft) return;
       event.stopPropagation();
@@ -78,11 +79,13 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   connectedCallback() {
+    window.addEventListener("resize", this._repositionTimePicker);
     if (this._hass) this._initialize();
     this._tickStatuses();
   }
 
   disconnectedCallback() {
+    window.removeEventListener("resize", this._repositionTimePicker);
     clearTimeout(this._statusTimer);
   }
 
@@ -380,8 +383,9 @@ class PlantLightSchedulerCard extends HTMLElement {
   _editorTemplate() {
     const isEditing = Boolean(this._draft.id);
     return `
-      <div class="dialog-scrim" data-action="dismiss">
-        <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title">
+      <div class="dialog-scrim" data-action="dismiss"
+        role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title">
+        <section class="dialog">
           <div class="dialog-heading">
             <div>
               <span class="eyebrow">Plant lights</span>
@@ -419,7 +423,6 @@ class PlantLightSchedulerCard extends HTMLElement {
               ${this._timeFieldTemplate("on", "On")}
               ${this._timeFieldTemplate("off", "Off")}
             </div>
-            <section class="time-picker" id="schedule-time-picker" aria-labelledby="time-picker-title" hidden></section>
             <p class="time-hint" id="time-format-hint">To type a time, use 24-hour format (08:00 or 2100).</p>
             <div class="validation-message" role="alert"></div>
           </div>
@@ -435,6 +438,7 @@ class PlantLightSchedulerCard extends HTMLElement {
             }>${this._saving ? "Saving…" : "Save"}</button>
           </div>
         </section>
+        <section class="time-picker" id="schedule-time-picker" aria-labelledby="time-picker-title" hidden></section>
       </div>`;
   }
 
@@ -505,8 +509,11 @@ class PlantLightSchedulerCard extends HTMLElement {
     this.shadowRoot
       .querySelector('[data-action="dismiss"]')
       ?.addEventListener("click", (event) => {
+        if (event.target.closest(".time-picker, [data-time-picker]")) return;
+        if (this._closeTimePicker()) return;
         if (event.target === event.currentTarget) this._closeDialog();
       });
+    this.shadowRoot.querySelector(".dialog")?.addEventListener("scroll", this._repositionTimePicker);
     this.shadowRoot
       .querySelector('[data-action="save"]')
       ?.addEventListener("click", () => this._saveDraft());
@@ -553,12 +560,12 @@ class PlantLightSchedulerCard extends HTMLElement {
     trigger.setAttribute("aria-expanded", "true");
     panel.hidden = false;
     this.shadowRoot.querySelector('[data-action="save"]').disabled = true;
+    this._positionTimePicker();
     for (const list of panel.querySelectorAll(".time-choice-list")) {
       const selected = list.querySelector(":checked").parentElement;
       list.scrollTop = selected.offsetTop - (list.clientHeight - selected.offsetHeight) / 2;
     }
     panel.querySelector('[name="time-hour"]:checked').focus({ preventScroll: true });
-    panel.scrollIntoView({ block: "nearest" });
 
     panel.querySelector("[data-time-cancel]").addEventListener("click", () => this._closeTimePicker(true));
     panel.querySelector("[data-time-apply]").addEventListener("click", () => {
@@ -584,6 +591,26 @@ class PlantLightSchedulerCard extends HTMLElement {
     </fieldset>`;
   }
 
+  _positionTimePicker() {
+    const panel = this.shadowRoot.querySelector(".time-picker:not([hidden])");
+    if (!panel) return;
+    const trigger = this.shadowRoot.querySelector('[data-time-picker][aria-expanded="true"]');
+    const anchor = trigger.getBoundingClientRect();
+    const area = panel.parentElement.getBoundingClientRect();
+    const margin = 8;
+    const gap = 6;
+    const above = anchor.top - area.top - margin - gap;
+    const below = area.bottom - anchor.bottom - margin - gap;
+    // Prefer opening below the clock, and flip upward when there is more room.
+    const openAbove = panel.scrollHeight + 2 > below && above > below;
+    panel.style.maxHeight = `${Math.max(0, openAbove ? above : below)}px`;
+    const { width, height } = panel.getBoundingClientRect();
+    const left = Math.max(margin, Math.min(anchor.right - area.left - width, area.width - width - margin));
+    const top = openAbove ? anchor.top - area.top - gap - height : anchor.bottom - area.top + gap;
+    panel.style.left = `${left}px`;
+    panel.style.top = `${Math.max(margin, top)}px`;
+  }
+
   _closeTimePicker(restoreFocus = false) {
     const panel = this.shadowRoot.querySelector(".time-picker:not([hidden])");
     if (!panel) return false;
@@ -591,7 +618,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     panel.hidden = true;
     trigger.setAttribute("aria-expanded", "false");
     this.shadowRoot.querySelector('[data-action="save"]').disabled = this._saving;
-    if (restoreFocus) trigger.focus();
+    if (restoreFocus) trigger.focus({ preventScroll: true });
     return true;
   }
 
@@ -1210,10 +1237,17 @@ class PlantLightSchedulerCard extends HTMLElement {
         outline-offset: -2px;
       }
       .time-picker {
-        margin-top: 10px;
+        position: absolute;
+        z-index: 3;
+        width: min(300px, calc(100% - 16px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 12px 14px;
         border: 1px solid var(--divider-color);
         border-radius: 12px;
+        color: var(--primary-text-color);
+        background: var(--card-background-color, #fff);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
       }
       .time-picker h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
       .time-picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -1317,7 +1351,6 @@ class PlantLightSchedulerCard extends HTMLElement {
         .time-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
         .dialog-actions { position: sticky; bottom: 0; background: var(--card-background-color, #fff); }
         .dialog:has(.picker-panel:not([hidden])) .dialog-actions { position: static; }
-        .dialog:has(.time-picker:not([hidden])) .dialog-actions { position: static; }
         .confirm-dialog { width: 100%; border-radius: 28px 28px 0 0; }
       }
     `;
