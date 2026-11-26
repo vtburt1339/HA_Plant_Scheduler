@@ -49,7 +49,7 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.2.0
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.2.1
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.
@@ -70,7 +70,7 @@ Choose **JavaScript module** as the resource type. This manual resource path als
 
 ## Add the energy card
 
-Edit a dashboard, choose **Add card**, and search for **Plant Light Energy**. If you manage resources manually, add `/plant_light_scheduler/plant-light-energy-card.js?v=0.2.0` as a **JavaScript module** and reload the dashboard. The YAML card type is `custom:plant-light-energy-card`.
+Edit a dashboard, choose **Add card**, and search for **Plant Light Energy**. If you manage resources manually, add `/plant_light_scheduler/plant-light-energy-card.js?v=0.2.1` as a **JavaScript module** and reload the dashboard. The YAML card type is `custom:plant-light-energy-card`.
 
 Tracking starts from the first valid meter reading after setup. The card shows the most recent power readings immediately and refreshes every 10 seconds. After 24 hours, it shows the measured daily average and a 30-day estimate. Usage includes any draw from assigned plugs, including manual use and use while a schedule is paused.
 

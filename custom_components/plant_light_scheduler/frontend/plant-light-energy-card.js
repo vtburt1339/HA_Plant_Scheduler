@@ -241,12 +241,12 @@ class PlantLightEnergyCard extends HTMLElement {
           && (kind !== "energy" || ["total", "total_increasing"].includes(attributes.state_class));
       });
       if (override && !candidates.includes(override)) candidates.push(override);
-      candidates.sort((a, b) => this._label(a).localeCompare(this._label(b)));
+      candidates.sort();
       const description = source?.conflict ? "This meter is assigned to multiple schedules."
-        : source?.detected ? `Source: ${this._label(source.detected)}` : "Choose a sensor if automatic matching finds none.";
+        : source?.detected ? `Source: ${source.detected}` : "Choose a sensor if automatic matching finds none.";
       return `<label>${kind === "power" ? "Live power sensor" : "Cumulative energy sensor"}
         <select name="${kind}"><option value="">Automatic</option>
-          ${candidates.map((id) => `<option value="${escapeHtml(id)}" ${id === override ? "selected" : ""}>${escapeHtml(this._label(id))}</option>`).join("")}
+          ${candidates.map((id) => `<option value="${escapeHtml(id)}" ${id === override ? "selected" : ""}>${escapeHtml(id)}</option>`).join("")}
         </select><small>${escapeHtml(description)}</small></label>`;
     }).join("");
   }
@@ -328,6 +328,7 @@ class PlantLightEnergyCard extends HTMLElement {
         border-radius: 8px; padding: 0 10px; background: var(--card-background-color, #fff);
         color: var(--primary-text-color); font: inherit; font-size: 16px; }
       .meter-fields { display: grid; gap: 10px; }
+      .meter-fields small { overflow-wrap: anywhere; }
       .dialog-error { margin: 8px 0 0; font-size: 13px; }
       .dialog-error:empty { display: none; }
     `;

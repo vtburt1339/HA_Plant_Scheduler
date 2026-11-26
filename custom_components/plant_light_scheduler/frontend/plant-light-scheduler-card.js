@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.1";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
