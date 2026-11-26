@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "plant_light_scheduler"
 NAME: Final = "Plant Light Scheduler"
-VERSION: Final = "0.1.7"
+VERSION: Final = "0.1.8"
 
 DATA_SCHEDULER: Final = "scheduler"
 STORAGE_KEY: Final = DOMAIN

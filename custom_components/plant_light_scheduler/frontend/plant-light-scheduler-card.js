@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.7";
+const CARD_VERSION = "0.1.8";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -53,12 +53,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       if (event.key !== "Escape" || !this._draft) return;
       event.stopPropagation();
       if (this._closeTimePicker(true)) return;
-      const picker = this.shadowRoot.querySelector(".entity-picker[open]");
-      if (picker) {
-        picker.open = false;
-        picker.querySelector("summary").focus();
-        return;
-      }
+      if (this._closeSwitchPicker(true)) return;
       this._closeDialog();
     });
   }
@@ -407,14 +402,17 @@ class PlantLightSchedulerCard extends HTMLElement {
             </label>
             <div class="field-group">
               <span class="field-label">Switches</span>
-              <details class="entity-picker">
-                <summary>Select switches</summary>
-                <div class="picker-panel">
+              <div class="entity-picker">
+                <button type="button" class="switch-picker-trigger" aria-expanded="false"
+                  aria-controls="switch-dropdown" ${this._saving ? "disabled" : ""}>
+                  <span>Select switches</span><span class="picker-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="picker-panel" id="switch-dropdown" role="group" aria-label="Select switches" hidden>
                   <input class="switch-search" type="search" aria-label="Search switches"
                     placeholder="Search switches" autocomplete="off">
                   <ul class="switch-options" aria-label="Switches"></ul>
                 </div>
-              </details>
+              </div>
               <div class="entity-chips"></div>
             </div>
             <div class="time-grid">
@@ -533,8 +531,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     const time = trigger.dataset.timePicker;
     const input = this.shadowRoot.querySelector(`#${time}-time`);
     const panel = this.shadowRoot.querySelector("#schedule-time-picker");
-    const switchPicker = this.shadowRoot.querySelector(".entity-picker");
-    switchPicker.open = false;
+    this._closeSwitchPicker();
 
     const current = normalizeTime(input.value) ?? (time === "on" ? "08:00" : "21:00");
     const [hour, minute] = current.split(":").map(Number);
@@ -609,6 +606,8 @@ class PlantLightSchedulerCard extends HTMLElement {
   _bindSwitchPicker() {
     const picker = this.shadowRoot.querySelector(".entity-picker");
     if (!picker) return;
+    const trigger = picker.querySelector(".switch-picker-trigger");
+    const panel = picker.querySelector(".picker-panel");
     const search = picker.querySelector(".switch-search");
     const options = picker.querySelector(".switch-options");
     const chips = this.shadowRoot.querySelector(".entity-chips");
@@ -624,13 +623,14 @@ class PlantLightSchedulerCard extends HTMLElement {
         name.toLocaleLowerCase().includes(query) || id.includes(query)
       );
       options.innerHTML = matches.map(({ id, name }) => {
-        const status = inUse.has(id) ? "In Use" :
-          this._draft.entities.includes(id) ? "Selected" : "";
-        return `<li><button class="switch-option" data-switch="${escapeHtml(id)}"
-          ${status || this._saving ? "disabled" : ""}>
+        const reserved = inUse.has(id);
+        const selected = this._draft.entities.includes(id);
+        return `<li><label class="switch-option">
+          <input type="checkbox" data-switch="${escapeHtml(id)}"
+            ${selected ? "checked" : ""} ${reserved || this._saving ? "disabled" : ""}>
           <span>${escapeHtml(name)}<small>${escapeHtml(id)}</small></span>
-          ${status ? `<span class="switch-status">${status}</span>` : ""}
-        </button></li>`;
+          ${reserved ? '<span class="switch-status">In Use</span>' : ""}
+        </label></li>`;
       }).join("") || '<li class="no-switches">No switches found</li>';
     };
 
@@ -645,24 +645,36 @@ class PlantLightSchedulerCard extends HTMLElement {
       }).join("") || '<span class="selection-hint">No switches selected</span>';
     };
 
-    picker.addEventListener("toggle", () => {
-      if (picker.isConnected && picker.open && this._draft) {
-        this._closeTimePicker();
-        renderOptions();
-        search.focus();
-      }
+    trigger.addEventListener("click", () => {
+      if (this._closeSwitchPicker()) return;
+      this._closeTimePicker();
+      renderOptions();
+      panel.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      panel.scrollIntoView({ block: "nearest" });
+      search.focus({ preventScroll: true });
     });
+    const closeOutside = (event) => {
+      if (!panel.hidden && !picker.contains(event.target)) this._closeSwitchPicker();
+    };
+    const dialog = picker.closest(".dialog");
+    dialog.addEventListener("click", closeOutside);
+    dialog.addEventListener("focusin", closeOutside);
     search.addEventListener("input", renderOptions);
-    options.addEventListener("click", (event) => {
-      const option = event.target.closest("button[data-switch]");
+    options.addEventListener("change", (event) => {
+      const option = event.target.closest("input[data-switch]");
       if (!option || option.disabled || this._saving) return;
       const id = option.dataset.switch;
-      if (this._switchesInUse().has(id) || this._draft.entities.includes(id)) return;
-      this._draft.entities.push(id);
+      const selected = new Set(this._draft.entities);
+      if (this._switchesInUse().has(id)) {
+        option.checked = selected.has(id);
+        return;
+      }
+      if (option.checked) selected.add(id);
+      else selected.delete(id);
+      this._draft.entities = [...selected];
       renderSelection();
-      renderOptions();
       this._showValidation("");
-      search.focus();
     });
     chips.addEventListener("click", (event) => {
       const remove = event.target.closest("button[data-remove-switch]");
@@ -671,10 +683,20 @@ class PlantLightSchedulerCard extends HTMLElement {
         (id) => id !== remove.dataset.removeSwitch
       );
       renderSelection();
-      if (picker.open) renderOptions();
-      picker.querySelector("summary").focus();
+      if (!panel.hidden) renderOptions();
+      trigger.focus();
     });
     renderSelection();
+  }
+
+  _closeSwitchPicker(restoreFocus = false) {
+    const panel = this.shadowRoot.querySelector(".picker-panel:not([hidden])");
+    if (!panel) return false;
+    const trigger = panel.previousElementSibling;
+    panel.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus) trigger.focus();
+    return true;
   }
 
   _showValidation(message) {
@@ -1027,18 +1049,38 @@ class PlantLightSchedulerCard extends HTMLElement {
         outline: 2px solid var(--scheduler-accent);
         outline-offset: -1px;
       }
-      .entity-picker { margin-top: 7px; }
-      .entity-picker summary {
+      .entity-picker { position: relative; margin-top: 7px; }
+      .switch-picker-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
         padding: 14px;
         border: 1px solid var(--divider-color);
         border-radius: 12px;
+        background: transparent;
+        color: var(--primary-text-color);
         cursor: pointer;
       }
+      .picker-chevron {
+        width: 8px;
+        height: 8px;
+        margin-inline-end: 3px;
+        border: solid var(--secondary-text-color);
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+      .switch-picker-trigger[aria-expanded="true"] .picker-chevron { transform: rotate(225deg); }
       .picker-panel {
-        margin-top: 4px;
+        position: absolute;
+        z-index: 2;
+        inset-inline: 0;
+        top: calc(100% + 4px);
         padding: 8px;
         border: 1px solid var(--divider-color);
         border-radius: 12px;
+        background: var(--card-background-color, #fff);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .24);
       }
       .switch-search {
         width: 100%;
@@ -1059,9 +1101,9 @@ class PlantLightSchedulerCard extends HTMLElement {
         overscroll-behavior: contain;
       }
       .switch-option {
-        display: flex;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
-        justify-content: space-between;
         gap: 8px;
         width: 100%;
         min-height: 48px;
@@ -1073,11 +1115,12 @@ class PlantLightSchedulerCard extends HTMLElement {
         cursor: pointer;
         text-align: start;
       }
-      .switch-option > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+      .switch-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--scheduler-accent); }
+      .switch-option > span { min-width: 0; overflow-wrap: anywhere; }
       .switch-option small { display: block; color: var(--secondary-text-color); }
-      .switch-option:not(:disabled):hover { background: var(--secondary-background-color); }
-      .switch-option:disabled { color: var(--secondary-text-color); opacity: .72; }
-      .switch-option:focus-visible, .switch-search:focus-visible, .entity-picker summary:focus-visible {
+      .switch-option:not(:has(input:disabled)):hover { background: var(--secondary-background-color); }
+      .switch-option:has(input:disabled) { color: var(--secondary-text-color); opacity: .72; cursor: default; }
+      .switch-option:focus-within, .switch-search:focus-visible, .switch-picker-trigger:focus-visible {
         outline: 2px solid var(--scheduler-accent);
         outline-offset: -2px;
       }
@@ -1273,6 +1316,7 @@ class PlantLightSchedulerCard extends HTMLElement {
         .dialog { width: 100%; max-height: 92vh; border-radius: 28px 28px 0 0; }
         .time-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
         .dialog-actions { position: sticky; bottom: 0; background: var(--card-background-color, #fff); }
+        .dialog:has(.picker-panel:not([hidden])) .dialog-actions { position: static; }
         .dialog:has(.time-picker:not([hidden])) .dialog-actions { position: static; }
         .confirm-dialog { width: 100%; border-radius: 28px 28px 0 0; }
       }
