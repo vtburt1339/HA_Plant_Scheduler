@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.6";
+const CARD_VERSION = "0.1.7";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -1180,7 +1180,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       .time-choice-list {
         position: relative;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         max-height: 132px;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -1272,7 +1272,6 @@ class PlantLightSchedulerCard extends HTMLElement {
         .dialog-scrim { align-items: end; padding: 0; }
         .dialog { width: 100%; max-height: 92vh; border-radius: 28px 28px 0 0; }
         .time-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-        .time-choice-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .dialog-actions { position: sticky; bottom: 0; background: var(--card-background-color, #fff); }
         .dialog:has(.time-picker:not([hidden])) .dialog-actions { position: static; }
         .confirm-dialog { width: 100%; border-radius: 28px 28px 0 0; }
