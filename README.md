@@ -15,7 +15,7 @@ The scheduler runs in Home Assistant, not in the browser. Schedules continue to 
 - One schedule per switch, with an **In Use** label for switches already assigned
 - Persistent storage in Home Assistant's `.storage` directory
 - Admin-only schedule changes; other users can view schedules
-- Separate Plant Light Energy card with live watts, energy averages, and estimated costs
+- Live watts and projected daily and 30-day costs in the scheduler card
 
 ## Install
 
@@ -49,7 +49,7 @@ title: Plant Light Scheduler
 If the card is not present after the first restart, add this JavaScript module under **Settings → Dashboards → Resources**, then refresh the browser:
 
 ```text
-/plant_light_scheduler/plant-light-scheduler-card.js?v=0.2.1
+/plant_light_scheduler/plant-light-scheduler-card.js?v=0.3.0
 ```
 
 Choose **JavaScript module** as the resource type. This manual resource path also guarantees that Home Assistant loads the card before rendering a dashboard.
@@ -68,15 +68,13 @@ Choose **JavaScript module** as the resource type. This manual resource path als
 - Disabling or deleting a schedule stops future control and intentionally leaves switches at their current state.
 - Times use the Home Assistant server's configured local timezone.
 
-## Add the energy card
+## Power and cost estimates
 
-Edit a dashboard, choose **Add card**, and search for **Plant Light Energy**. If you manage resources manually, add `/plant_light_scheduler/plant-light-energy-card.js?v=0.2.1` as a **JavaScript module** and reload the dashboard. The YAML card type is `custom:plant-light-energy-card`.
+The scheduler shows each row's live power and projected costs, with totals below the schedules. The card refreshes readings every 10 seconds. Daily cost is current watts ÷ 1,000 × scheduled on-hours × the rate per kWh. The monthly estimate uses 30 days. If the plugs report zero watts, the estimate is zero. Paused schedules still show live watts and contribute zero projected cost.
 
-Tracking starts from the first valid meter reading after setup. The card shows the most recent power readings immediately and refreshes every 10 seconds. After 24 hours, it shows the measured daily average and a 30-day estimate. Usage includes any draw from assigned plugs, including manual use and use while a schedule is paused.
+Use **Energy settings** on the scheduler card to edit the rate or select a live power sensor by entity ID. A unique compatible sensor on the switch's device is picked automatically. A dash means there's no reading or estimate for that value. **Partial** means some readings are unavailable or a meter is shared across schedules.
 
-Use **Energy settings** to set a rate per kWh in Home Assistant's configured currency or choose meter sources. A single compatible sensor on the switch's device is picked automatically. If an entity is disabled, enable it in Home Assistant first. If a plug exposes a reading only as an attribute, expose it through a template sensor with the appropriate device class and unit, and use `total_increasing` for a cumulative consumption meter. Then select that sensor.
-
-**Reset averages** starts a fresh tracking window for all schedules. The plug counters, Home Assistant history, and saved rate stay intact. The 30-day cost is an estimate at the current rate.
+When upgrading from 0.2, remove the old **Plant Light Energy** card and its JavaScript resource if you registered it manually. The upgrade brings your saved rate and power-sensor choices into the scheduler. Previously tracked energy remains in `.storage/plant_light_scheduler.energy` and is no longer collected or displayed.
 
 ## Development
 
@@ -85,7 +83,6 @@ The frontend is plain JavaScript and needs no build step.
 ```bash
 python3 -m pytest
 node --check custom_components/plant_light_scheduler/frontend/plant-light-scheduler-card.js
-node --check custom_components/plant_light_scheduler/frontend/plant-light-energy-card.js
 python3 -m compileall -q custom_components
 ```
 

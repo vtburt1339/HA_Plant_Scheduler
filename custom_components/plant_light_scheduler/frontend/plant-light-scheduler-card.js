@@ -1,10 +1,12 @@
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.3.0";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
   update: "plant_light_scheduler/update",
   delete: "plant_light_scheduler/delete",
 };
+const ENERGY_API = "plant_light_scheduler/energy";
+const POWER_REFRESH_MS = 10_000;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -49,6 +51,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     this._draft = null;
     this._confirmingDelete = false;
     this._initialized = false;
+    this._powerRequest = 0;
     this._repositionTimePicker = () => this._positionTimePicker();
     this.shadowRoot.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || !this._draft) return;
@@ -75,18 +78,23 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   getCardSize() {
-    return Math.max(3, this._schedules.length * 3 + 2);
+    return this._schedules.length ? this._schedules.length * 3 + 3 : 3;
   }
 
   connectedCallback() {
     window.addEventListener("resize", this._repositionTimePicker);
     if (this._hass) this._initialize();
     this._tickStatuses();
+    this._powerTimer = setInterval(() => this._loadPower(), POWER_REFRESH_MS);
+    if (this._initialized && !this._loading) this._loadPower();
   }
 
   disconnectedCallback() {
     window.removeEventListener("resize", this._repositionTimePicker);
     clearTimeout(this._statusTimer);
+    clearInterval(this._powerTimer);
+    this._powerRequest++;
+    this._powerLoading = false;
   }
 
   _tickStatuses() {
@@ -125,7 +133,72 @@ class PlantLightSchedulerCard extends HTMLElement {
     } finally {
       this._loading = false;
       this._render();
+      this._loadPower(true);
     }
+  }
+
+  _sendEnergy(command, fields = {}) {
+    return this._hass.connection.sendMessagePromise({
+      type: `${ENERGY_API}/${command}`,
+      ...fields,
+    });
+  }
+
+  async _loadPower(force = false) {
+    if (!this.isConnected || !this._hass || (!force && this._powerLoading)) return;
+    const request = ++this._powerRequest;
+    this._powerLoading = true;
+    try {
+      const report = await this._sendEnergy("get");
+      if (request !== this._powerRequest) return;
+      this._power = report;
+      this._powerError = "";
+    } catch (error) {
+      if (request !== this._powerRequest) return;
+      this._power = null;
+      this._powerError = this._errorMessage(error, "Power readings unavailable.");
+    } finally {
+      if (request === this._powerRequest) {
+        this._powerLoading = false;
+        this._refreshPower();
+      }
+    }
+  }
+
+  _powerFormatters() {
+    const language = this._hass?.locale?.language;
+    const currency = this._power?.currency ?? this._hass?.config?.currency ?? "USD";
+    const cached = this._energyFormat;
+    if (cached?.language === language && cached?.currency === currency) return cached;
+    const options = { style: "currency", currency };
+    this._energyFormat = {
+      language, currency,
+      watts: new Intl.NumberFormat(language, { maximumFractionDigits: 1 }),
+      cost: new Intl.NumberFormat(language, options),
+      rate: new Intl.NumberFormat(language, { ...options, maximumFractionDigits: 4 }),
+    };
+    return this._energyFormat;
+  }
+
+  _refreshPower() {
+    const format = this._powerFormatters();
+    const rows = new Map(this._power?.rows.map((row) => [row.id, row]));
+    const set = (root, className, value) => {
+      const element = root.querySelector(className);
+      if (element && element.textContent !== value) element.textContent = value;
+    };
+    const totals = this._power?.totals;
+    for (const element of this.shadowRoot.querySelectorAll(".schedule-power, .power-total")) {
+      const row = element.dataset.id ? rows.get(element.dataset.id) : totals;
+      set(element, ".watts", row?.watts == null ? "—" : `${format.watts.format(row.watts)} W`);
+      set(element, ".day-cost", row?.day_cost == null ? "—" : format.cost.format(row.day_cost));
+      set(element, ".month-cost", row?.month_cost == null ? "—" : format.cost.format(row.month_cost));
+      set(element, ".power-partial", row?.power_partial || row?.cost_partial ? "Partial" : "");
+    }
+    const rate = this._power?.rate;
+    set(this.shadowRoot, ".energy-rate", this._powerError ? "Power readings unavailable"
+      : rate != null ? `Energy rate ${format.rate.format(rate)}/kWh`
+      : this._power ? "Energy rate not set" : "");
   }
 
   _friendlyName(entityId) {
@@ -214,13 +287,14 @@ class PlantLightSchedulerCard extends HTMLElement {
       <style>${this._styles()}</style>
       <ha-card>
         <div class="card-header">
+          <p class="energy-rate"></p>
           <div>
             <h1>${escapeHtml(this._config.title || "Plant Light Scheduler")}</h1>
             <p class="subtitle">Daily switch schedules</p>
           </div>
           ${
             this._schedules.length
-              ? '<span class="enabled-heading">Enabled</span>'
+              ? '<div class="power-heading">Energy Use<small>Day | 30 days</small></div><span class="enabled-heading">Enabled</span>'
               : ""
           }
         </div>
@@ -230,9 +304,11 @@ class PlantLightSchedulerCard extends HTMLElement {
         ${this._renderFooter()}
       </ha-card>
       <div class="dialog-host"></div>
+      <dialog class="energy-settings" aria-labelledby="energy-settings-title"></dialog>
     `;
     this._bindCardEvents();
     this._refreshStatuses();
+    this._refreshPower();
     if (this._draft) this._renderDialog();
   }
 
@@ -264,7 +340,21 @@ class PlantLightSchedulerCard extends HTMLElement {
     }
     return `<div class="schedule-list">${this._schedules
       .map((schedule) => this._renderSchedule(schedule))
-      .join("")}</div>`;
+      .join("")}</div>${this._renderPowerTotal()}`;
+  }
+
+  _powerAmounts() {
+    return `<span class="watts" aria-label="Current power">—</span>
+      <span class="power-costs" aria-label="Projected cost per day and 30 days">
+        <span><span class="day-cost">—</span><span class="cost-unit"> / day</span></span>
+        <span class="cost-separator" aria-hidden="true"> | </span>
+        <span><span class="month-cost">—</span><span class="cost-unit"> / 30 days</span></span>
+      </span><span class="power-partial"></span>`;
+  }
+
+  _renderPowerTotal() {
+    return `<div class="power-total"><span class="power-total-label">Total energy</span>
+      ${this._powerAmounts()}</div>`;
   }
 
   _renderSchedule(schedule) {
@@ -297,6 +387,7 @@ class PlantLightSchedulerCard extends HTMLElement {
             }
           </span>
         </button>
+        <div class="schedule-power" data-id="${escapeHtml(schedule.id)}">${this._powerAmounts()}</div>
         <ha-switch
           class="enable-switch"
           data-id="${escapeHtml(schedule.id)}"
@@ -321,6 +412,7 @@ class PlantLightSchedulerCard extends HTMLElement {
         <button class="add-button" data-action="add">
           <ha-icon icon="mdi:plus"></ha-icon><span>Add schedule</span>
         </button>
+        <button class="text-button" data-action="energy-settings">Energy settings</button>
       </div>`;
   }
 
@@ -328,6 +420,9 @@ class PlantLightSchedulerCard extends HTMLElement {
     this.shadowRoot
       .querySelector('[data-action="add"]')
       ?.addEventListener("click", () => this._openEditor());
+    this.shadowRoot
+      .querySelector('[data-action="energy-settings"]')
+      ?.addEventListener("click", () => this._openEnergySettings());
     this.shadowRoot
       .querySelector('[data-action="retry"]')
       ?.addEventListener("click", () => this._loadSchedules());
@@ -345,6 +440,97 @@ class PlantLightSchedulerCard extends HTMLElement {
         this._toggleSchedule(toggle.dataset.id, Boolean(toggle.checked));
       });
     });
+  }
+
+  async _openEnergySettings() {
+    if (!this._isAdmin) return;
+    const dialog = this.shadowRoot.querySelector(".energy-settings");
+    if (dialog.open) return;
+    if (!this._power) await this._loadPower(true);
+    if (!dialog.isConnected || dialog.open) return;
+    if (!this._power) {
+      this._notify(this._powerError || "Energy settings are unavailable.");
+      return;
+    }
+    const switches = this._schedules.flatMap((schedule) => schedule.entities);
+    const choices = [...new Set(switches)].filter((id) => this._power.sources?.[id]);
+    dialog.innerHTML = `
+      <h2 id="energy-settings-title">Energy settings</h2>
+      <form class="energy-rate-form">
+        <label>Cost per kWh (${escapeHtml(this._power.currency)})
+          <input name="rate" type="number" min="0" step="any" value="${escapeHtml(this._power.rate)}">
+        </label>
+        <button class="text-button" type="submit">Save rate</button>
+      </form>
+      ${choices.length ? `<form class="energy-source-form">
+        <label>Scheduled switch
+          <select name="switch">${choices.map((id) =>
+            `<option value="${escapeHtml(id)}">${escapeHtml(this._friendlyName(id))}</option>`).join("")}</select>
+        </label>
+        <label>Live power sensor <select name="power"></select><small class="source-description"></small></label>
+        <button class="text-button" type="submit">Save power sensor</button>
+      </form>` : ""}
+      <p class="energy-settings-message" role="status"></p>
+      <div class="energy-settings-actions"><button class="text-button" data-close>Done</button></div>`;
+    const rateForm = dialog.querySelector(".energy-rate-form");
+    rateForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this._saveEnergySettings(dialog, "set_rate", { rate: rateForm.elements.rate.value });
+    });
+    const sourceForm = dialog.querySelector(".energy-source-form");
+    if (sourceForm) {
+      const switchSelect = sourceForm.elements.namedItem("switch");
+      const renderSource = () => this._renderPowerSource(sourceForm, switchSelect.value);
+      switchSelect.addEventListener("change", renderSource);
+      renderSource();
+      sourceForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        this._saveEnergySettings(dialog, "set_sources", {
+          switch: switchSelect.value,
+          power: sourceForm.elements.power.value,
+        }, renderSource);
+      });
+    }
+    dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+    dialog.oncancel = (event) => {
+      if (this._savingEnergySettings) event.preventDefault();
+    };
+    dialog.showModal();
+  }
+
+  _renderPowerSource(form, switchId) {
+    const source = this._power?.sources?.[switchId];
+    const override = source?.override;
+    const candidates = Object.entries(this._hass?.states ?? {})
+      .filter(([id, state]) => id.startsWith("sensor.") && state.attributes?.device_class === "power")
+      .map(([id]) => id);
+    if (override && !candidates.includes(override)) candidates.push(override);
+    form.elements.power.innerHTML = '<option value="">Automatic</option>' + candidates.sort().map((id) =>
+      `<option value="${escapeHtml(id)}" ${id === override ? "selected" : ""}>${escapeHtml(id)}</option>`
+    ).join("");
+    form.querySelector(".source-description").textContent = source?.conflict
+      ? "This sensor is assigned to multiple schedules."
+      : source?.detected ? `Source: ${source.detected}` : "Choose a sensor if automatic matching finds none.";
+  }
+
+  async _saveEnergySettings(dialog, command, fields, onSuccess) {
+    if (this._savingEnergySettings) return;
+    this._savingEnergySettings = true;
+    const controls = dialog.querySelectorAll("button, input, select");
+    const message = dialog.querySelector(".energy-settings-message");
+    controls.forEach((control) => { control.disabled = true; });
+    message.textContent = "";
+    try {
+      await this._sendEnergy(command, fields);
+      await this._loadPower(true);
+      if (!this._powerError) onSuccess?.();
+      message.textContent = this._powerError || "Saved.";
+    } catch (error) {
+      message.textContent = this._errorMessage(error, "Could not save energy settings.");
+    } finally {
+      this._savingEnergySettings = false;
+      controls.forEach((control) => { control.disabled = false; });
+    }
   }
 
   _openEditor(schedule = null) {
@@ -819,6 +1005,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       });
       schedule.enabled = enabled;
       this._render();
+      this._loadPower(true);
     } catch (error) {
       this._notify(this._errorMessage(error, "Could not change schedule."));
       this._render();
@@ -843,11 +1030,13 @@ class PlantLightSchedulerCard extends HTMLElement {
     return `
       :host {
         display: block;
+        --power-columns: minmax(0, 1fr) minmax(112px, 132px) 64px;
         --scheduler-accent: var(--primary-color, #03a9d9);
         --scheduler-on: var(--state-switch-active-color, var(--primary-color, #03a9d9));
       }
       * { box-sizing: border-box; }
       ha-card {
+        container-type: inline-size;
         overflow: hidden;
         color: var(--primary-text-color);
         background: var(--ha-card-background, var(--card-background-color, #fff));
@@ -855,12 +1044,22 @@ class PlantLightSchedulerCard extends HTMLElement {
       button, input { font: inherit; }
       button { color: inherit; }
       .card-header {
-        display: flex;
+        display: grid;
+        grid-template-columns: var(--power-columns);
         align-items: end;
-        justify-content: space-between;
-        gap: 24px;
-        padding: 24px 24px 14px;
+        row-gap: 5px;
+        padding: 18px 12px 14px;
       }
+      .card-header > div:first-of-type { padding-inline-start: 12px; }
+      .energy-rate {
+        grid-column: 1 / -1;
+        justify-self: end;
+        padding-inline-end: 12px;
+        color: var(--secondary-text-color);
+        font-size: 12px;
+      }
+      .power-heading { font-size: 13px; font-weight: 500; }
+      .power-heading small { display: block; margin-top: 2px; color: var(--secondary-text-color); }
       h1, h2, p { margin: 0; }
       h1 {
         font-size: 24px;
@@ -884,7 +1083,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       .schedule-list { padding: 0 12px 8px; }
       .schedule-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 64px;
+        grid-template-columns: var(--power-columns);
         align-items: center;
         min-height: 78px;
         border-radius: 14px;
@@ -956,8 +1155,28 @@ class PlantLightSchedulerCard extends HTMLElement {
       }
       .schedule-status strong { color: var(--primary-text-color); font-weight: 600; }
       .entity-count { color: var(--secondary-text-color); font-size: 11px; }
+      .schedule-power { display: grid; gap: 3px; padding-inline-end: 4px; }
+      .watts { font-weight: 600; }
+      .power-costs, .power-partial { color: var(--secondary-text-color); font-size: 12px; }
+      .power-partial:empty { display: none; }
+      .schedule-power .cost-unit { display: none; }
+      .power-total {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px 14px;
+        padding: 12px 24px 16px;
+      }
+      .power-total-label { font-weight: 500; }
+      .power-total .power-costs { display: grid; gap: 2px; }
+      .power-total .cost-separator { display: none; }
       .enable-switch { justify-self: center; }
       .card-footer {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 4px;
         padding: 8px 16px 16px;
         border-top: 1px solid var(--divider-color);
       }
@@ -976,6 +1195,35 @@ class PlantLightSchedulerCard extends HTMLElement {
       }
       .add-button:hover, .text-button:hover { background: color-mix(in srgb, var(--scheduler-accent) 10%, transparent); }
       .add-button ha-icon { --mdc-icon-size: 20px; }
+      .energy-settings {
+        width: min(460px, calc(100% - 24px));
+        max-height: calc(100dvh - 24px);
+        padding: 22px;
+        border: 1px solid var(--divider-color);
+        border-radius: 20px;
+        color: var(--primary-text-color);
+        background: var(--card-background-color, #fff);
+      }
+      .energy-settings::backdrop { background: rgba(0, 0, 0, .5); }
+      .energy-settings form { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--divider-color); }
+      .energy-settings form button { justify-self: end; }
+      .energy-settings label { display: grid; gap: 6px; font-size: 14px; }
+      .energy-settings input, .energy-settings select {
+        width: 100%;
+        min-width: 0;
+        height: 42px;
+        padding: 0 10px;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-size: 16px;
+      }
+      .energy-settings small { color: var(--secondary-text-color); overflow-wrap: anywhere; }
+      .energy-settings-actions { display: flex; justify-content: flex-end; }
+      .energy-settings-message { margin-top: 8px; font-size: 13px; }
+      .energy-settings-message:empty { display: none; }
       .admin-note {
         padding: 12px 24px 18px;
         border-top: 1px solid var(--divider-color);
@@ -1338,14 +1586,19 @@ class PlantLightSchedulerCard extends HTMLElement {
       .confirm-dialog p { margin: 9px auto 24px; color: var(--secondary-text-color); font-size: 14px; line-height: 1.45; }
       .confirm-actions { display: flex; justify-content: center; gap: 8px; }
       .confirm-delete-button { color: #fff; background: var(--error-color); }
-      @media (max-width: 480px) {
-        .card-header { padding: 20px 18px 12px; }
+      @container (max-width: 490px) {
+        .card-header { grid-template-columns: minmax(0, 1fr); padding: 18px 10px 12px; }
         h1 { font-size: 21px; }
-        .enabled-heading { display: none; }
+        .power-heading, .enabled-heading { display: none; }
         .schedule-list { padding-inline: 6px; }
         .schedule-row { grid-template-columns: minmax(0, 1fr) 54px; }
         .schedule-main { gap: 12px; padding: 10px; }
         .schedule-icon { flex-basis: 38px; width: 38px; height: 38px; }
+        .schedule-power { grid-column: 1; grid-row: 2; padding: 0 0 12px 60px; }
+        .schedule-power .cost-unit { display: inline; }
+        .enable-switch { grid-column: 2; grid-row: 1; }
+      }
+      @media (max-width: 480px) {
         .dialog-scrim { align-items: end; padding: 0; }
         .dialog { width: 100%; max-height: 92vh; border-radius: 28px 28px 0 0; }
         .time-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
