@@ -66,9 +66,13 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
             assert created == {"id": created["id"], **fields}
             assert await send("list") == [created]
 
+            named = await send(
+                "update", schedule_id=created["id"], name="  Grow lights  ", **fields
+            )
+            assert named == {**created, "name": "Grow lights"}
             changed = {**fields, "off": "20:00", "enabled": False}
             updated = await send("update", schedule_id=created["id"], **changed)
-            assert updated == {"id": created["id"], **changed}
+            assert updated == {"id": created["id"], "name": "Grow lights", **changed}
             reloaded = PlantLightScheduler(hass)
             await reloaded.async_load()
             assert reloaded.schedules == [updated]
@@ -77,13 +81,16 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
             conflict = "Already in use by another schedule: switch.plant_lights_north"
             await send("create", error=conflict, **fields)
             south = {**fields, "entities": ["switch.plant_lights_south"]}
-            second = await send("create", **south)
+            second = await send("create", name="South lights", **south)
+            assert second == {"id": second["id"], "name": "South lights", **south}
             both = {**fields, "entities": fields["entities"] + south["entities"]}
             await send("update", schedule_id=second["id"], error=conflict, **both)
             assert await send("list") == [updated, second]
 
             assert await send("delete", schedule_id=created["id"]) == {"success": True}
-            reassigned = await send("update", schedule_id=second["id"], **both)
+            reassigned = await send(
+                "update", schedule_id=second["id"], name=" ", **both
+            )
             assert reassigned == {"id": second["id"], **both}
             assert await send("delete", schedule_id=second["id"]) == {"success": True}
             assert await send("list") == []

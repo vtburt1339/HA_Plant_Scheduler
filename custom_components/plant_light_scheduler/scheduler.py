@@ -6,7 +6,7 @@ import asyncio
 import logging
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 from uuid import uuid4
 
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
@@ -37,6 +37,7 @@ class Schedule(TypedDict):
     on: str
     off: str
     enabled: bool
+    name: NotRequired[str]
 
 
 class PlantLightScheduler:
@@ -90,6 +91,8 @@ class PlantLightScheduler:
             "off": data["off"],
             "enabled": data.get("enabled", True),
         }
+        if name := data.get("name"):
+            schedule["name"] = name
         async with self._lock:
             self._check_entity_assignments(set(schedule["entities"]))
             self.schedules.append(schedule)
@@ -101,7 +104,8 @@ class PlantLightScheduler:
         """Update and persist a schedule."""
         async with self._lock:
             index = self._find_index(schedule_id)
-            previously_managed = set(self.schedules[index]["entities"])
+            previous = self.schedules[index]
+            previously_managed = set(previous["entities"])
             schedule: Schedule = {
                 "id": schedule_id,
                 "entities": list(data["entities"]),
@@ -109,6 +113,8 @@ class PlantLightScheduler:
                 "off": data["off"],
                 "enabled": data.get("enabled", True),
             }
+            if name := data.get("name", previous.get("name")):
+                schedule["name"] = name
             self._check_entity_assignments(
                 set(schedule["entities"]) - previously_managed
             )

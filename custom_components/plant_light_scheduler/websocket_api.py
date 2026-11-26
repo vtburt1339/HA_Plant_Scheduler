@@ -22,7 +22,13 @@ from .scheduler import PlantLightScheduler
 MAX_ENTITIES = 64
 SWITCH_ENTITY_PATTERN = re.compile(r"^switch\.[a-z0-9_]+$")
 # Home Assistant validates the message shape before calling the handler.
-SCHEDULE_FIELDS = {"entities": [str], "on": str, "off": str, "enabled": bool}
+SCHEDULE_FIELDS = {
+    "entities": [str],
+    "on": str,
+    "off": str,
+    "enabled": bool,
+    "name": str,
+}
 
 
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
@@ -67,12 +73,18 @@ def _schedule_data(msg: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(enabled, bool):
         raise ValueError("Enabled must be true or false")
 
-    return {
+    data = {
         "entities": entities,
         "on": on_time,
         "off": off_time,
         "enabled": enabled,
     }
+    if "name" in msg:
+        name = msg["name"].strip()
+        if len(name) > 100:
+            raise ValueError("Schedule name must be 100 characters or fewer")
+        data["name"] = name
+    return data
 
 
 def _schedule_id(msg: dict[str, Any]) -> str:

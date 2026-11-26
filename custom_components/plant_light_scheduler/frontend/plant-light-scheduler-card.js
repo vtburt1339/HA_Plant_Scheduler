@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.5";
+const CARD_VERSION = "0.1.6";
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -138,7 +138,7 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   _scheduleName(schedule) {
-    return schedule.entities.map((id) => this._friendlyName(id)).join(", ");
+    return schedule.name || schedule.entities.map((id) => this._friendlyName(id)).join(", ");
   }
 
   _formatTime(value) {
@@ -355,12 +355,13 @@ class PlantLightSchedulerCard extends HTMLElement {
     this._draft = schedule
       ? {
           id: schedule.id,
+          name: schedule.name ?? "",
           entities: [...schedule.entities],
           on: schedule.on,
           off: schedule.off,
           enabled: schedule.enabled !== false,
         }
-      : { entities: [], on: "08:00", off: "21:00", enabled: true };
+      : { name: "", entities: [], on: "08:00", off: "21:00", enabled: true };
     this._renderDialog();
   }
 
@@ -398,6 +399,12 @@ class PlantLightSchedulerCard extends HTMLElement {
             </button>
           </div>
           <div class="dialog-body">
+            <label class="schedule-name-field">
+              <span class="field-label">Schedule name (optional)</span>
+              <input id="schedule-name" type="text" maxlength="100"
+                placeholder="Uses switch names by default"
+                value="${escapeHtml(this._draft.name)}" ${this._saving ? "disabled" : ""}>
+            </label>
             <div class="field-group">
               <span class="field-label">Switches</span>
               <details class="entity-picker">
@@ -470,6 +477,10 @@ class PlantLightSchedulerCard extends HTMLElement {
 
   _bindDialogEvents() {
     this._bindSwitchPicker();
+
+    this.shadowRoot.querySelector("#schedule-name")?.addEventListener("input", (event) => {
+      this._draft.name = event.target.value;
+    });
 
     this.shadowRoot.querySelectorAll("[data-time-picker]").forEach((trigger) => {
       trigger.addEventListener("click", () => {
@@ -702,6 +713,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       const type = this._draft.id ? WS.update : WS.create;
       const message = {
         type,
+        name: this._draft.name.trim(),
         entities: this._draft.entities,
         on: this._draft.on,
         off: this._draft.off,
@@ -1000,6 +1012,21 @@ class PlantLightSchedulerCard extends HTMLElement {
       .icon-button:hover { background: var(--secondary-background-color); }
       .dialog-body { padding: 8px 24px 24px; }
       .field-label { display: block; font-size: 14px; font-weight: 500; }
+      .schedule-name-field { display: grid; gap: 7px; margin-bottom: 18px; }
+      .schedule-name-field input {
+        min-width: 0;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: transparent;
+        color: var(--primary-text-color);
+        font-size: 16px;
+      }
+      .schedule-name-field input:focus-visible {
+        outline: 2px solid var(--scheduler-accent);
+        outline-offset: -1px;
+      }
       .entity-picker { margin-top: 7px; }
       .entity-picker summary {
         padding: 14px;
