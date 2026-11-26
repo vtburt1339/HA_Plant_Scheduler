@@ -54,14 +54,21 @@ def test_avatar_assignments_survive_edits_deletion_and_reload(tmp_path: Path) ->
         scheduler = again
 
         with patch.object(scheduler, "async_reconcile"):
+            preferred = (original + 1) % AVATAR_COUNT
+            manual = await scheduler.async_create(
+                {**fields, "entities": ["switch.manual"], "avatar": preferred}
+            )
+            assert manual["avatar"] == preferred
             # Locking must hold even if two dashboard clients create concurrently.
             new = await asyncio.gather(
                 *(
                     scheduler.async_create({**fields, "entities": [f"switch.new_{i}"]})
-                    for i in range(AVATAR_COUNT - 1)
+                    for i in range(AVATAR_COUNT - 2)
                 )
             )
-            assert {original, *(s["avatar"] for s in new)} == set(range(AVATAR_COUNT))
+            assert {original, preferred, *(s["avatar"] for s in new)} == set(
+                range(AVATAR_COUNT)
+            )
             updated = await scheduler.async_update(
                 "old", {**legacy, "name": "First plant", "enabled": False}
             )
@@ -73,7 +80,11 @@ def test_avatar_assignments_survive_edits_deletion_and_reload(tmp_path: Path) ->
             fallback = await scheduler.async_create(
                 {**fields, "entities": ["switch.fallback"]}
             )
+            duplicate = await scheduler.async_create(
+                {**fields, "entities": ["switch.duplicate"], "avatar": preferred}
+            )
         assert "avatar" not in fallback
+        assert duplicate["avatar"] == preferred
         assert (await store.async_load())["used_avatars"] == list(range(AVATAR_COUNT))
 
     asyncio.run(exercise())

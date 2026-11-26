@@ -9,6 +9,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
+    AVATAR_COUNT,
     DATA_SCHEDULER,
     DOMAIN,
     WS_CREATE,
@@ -28,6 +29,7 @@ SCHEDULE_FIELDS = {
     "off": str,
     "enabled": bool,
     "name": str,
+    "avatar": int,
 }
 
 
@@ -84,6 +86,11 @@ def _schedule_data(msg: dict[str, Any]) -> dict[str, Any]:
         if len(name) > 100:
             raise ValueError("Schedule name must be 100 characters or fewer")
         data["name"] = name
+    if "avatar" in msg:
+        avatar = msg["avatar"]
+        if type(avatar) is not int or not 0 <= avatar < AVATAR_COUNT:
+            raise ValueError("Choose an avatar from the available designs")
+        data["avatar"] = avatar
     return data
 
 

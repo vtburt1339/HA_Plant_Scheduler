@@ -94,6 +94,17 @@ def test_dashboard_schedule_lifecycle(tmp_path: Path) -> None:
                 "avatar": second["avatar"],
                 **south,
             }
+            second = await send(
+                "update", schedule_id=second["id"], avatar=created["avatar"], **south
+            )
+            assert second["avatar"] == created["avatar"]
+            await send(
+                "update",
+                schedule_id=second["id"],
+                avatar=20,
+                error="Choose an avatar",
+                **south,
+            )
             both = {**fields, "entities": fields["entities"] + south["entities"]}
             await send("update", schedule_id=second["id"], error=conflict, **both)
             assert await send("list") == [updated, second]

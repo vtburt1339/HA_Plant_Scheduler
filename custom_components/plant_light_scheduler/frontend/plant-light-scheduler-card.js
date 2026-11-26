@@ -1,5 +1,14 @@
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.4.1";
 const AVATAR_SPRITE = `/plant_light_scheduler/plant-avatars.svg?v=${CARD_VERSION}`;
+const AVATAR_NAMES = [
+  "Sprout", "Snake plant", "Cactus", "Monstera", "Echeveria",
+  "Daisy", "Pothos", "Rubber plant", "Bamboo", "Fern",
+  "Croton", "Clover", "Lavender", "Sunflower", "Jade plant",
+  "Tulip", "Bonsai", "Aloe", "String of pearls", "Heartleaf",
+];
+const hasAvatar = (id) => Number.isInteger(id) && id >= 0 && id < AVATAR_NAMES.length;
+const avatarArtwork = (id) =>
+  `<svg viewBox="0 0 64 64" focusable="false" aria-hidden="true"><use href="${AVATAR_SPRITE}#plant-${id}"></use></svg>`;
 const WS = {
   list: "plant_light_scheduler/list",
   create: "plant_light_scheduler/create",
@@ -53,11 +62,12 @@ class PlantLightSchedulerCard extends HTMLElement {
     this._confirmingDelete = false;
     this._initialized = false;
     this._powerRequest = 0;
-    this._repositionTimePicker = () => this._positionTimePicker();
+    this._repositionPicker = () => this._positionOpenPicker();
     this.shadowRoot.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || !this._draft) return;
       event.stopPropagation();
       if (this._closeTimePicker(true)) return;
+      if (this._closeAvatarPicker(true)) return;
       if (this._closeSwitchPicker(true)) return;
       this._closeDialog();
     });
@@ -83,7 +93,7 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   connectedCallback() {
-    window.addEventListener("resize", this._repositionTimePicker);
+    window.addEventListener("resize", this._repositionPicker);
     if (this._hass) this._initialize();
     this._tickStatuses();
     this._powerTimer = setInterval(() => this._loadPower(), POWER_REFRESH_MS);
@@ -91,7 +101,7 @@ class PlantLightSchedulerCard extends HTMLElement {
   }
 
   disconnectedCallback() {
-    window.removeEventListener("resize", this._repositionTimePicker);
+    window.removeEventListener("resize", this._repositionPicker);
     clearTimeout(this._statusTimer);
     clearInterval(this._powerTimer);
     this._powerRequest++;
@@ -362,16 +372,15 @@ class PlantLightSchedulerCard extends HTMLElement {
     const enabled = schedule.enabled !== false;
     const entityCount = schedule.entities.length;
     const avatar = schedule.avatar;
-    const hasAvatar = Number.isInteger(avatar) && avatar >= 0 && avatar < 20;
     return `
       <div class="schedule-row ${enabled ? "" : "disabled"}">
         <button class="schedule-main" data-action="edit" data-id="${escapeHtml(
           schedule.id
         )}" aria-label="Edit ${escapeHtml(this._scheduleName(schedule))}"
           aria-describedby="status-${escapeHtml(schedule.id)}">
-          <span class="schedule-icon ${hasAvatar ? "has-avatar" : ""}" aria-hidden="true">
-            ${hasAvatar
-              ? `<svg viewBox="0 0 64 64" focusable="false"><use href="${AVATAR_SPRITE}#plant-${avatar}"></use></svg>`
+          <span class="schedule-icon ${hasAvatar(avatar) ? "has-avatar" : ""}" aria-hidden="true">
+            ${hasAvatar(avatar)
+              ? avatarArtwork(avatar)
               : '<ha-icon icon="mdi:lightbulb-fluorescent-tube-outline"></ha-icon>'}
           </span>
           <span class="schedule-details">
@@ -547,6 +556,7 @@ class PlantLightSchedulerCard extends HTMLElement {
       ? {
           id: schedule.id,
           name: schedule.name ?? "",
+          avatar: schedule.avatar,
           entities: [...schedule.entities],
           on: schedule.on,
           off: schedule.off,
@@ -591,12 +601,15 @@ class PlantLightSchedulerCard extends HTMLElement {
             </button>
           </div>
           <div class="dialog-body">
-            <label class="schedule-name-field">
-              <span class="field-label">Schedule name (optional)</span>
+            <div class="schedule-name-field">
+              <label class="field-label" for="schedule-name">Schedule name (optional)</label>
               <input id="schedule-name" type="text" maxlength="100"
                 placeholder="Uses switch names by default"
                 value="${escapeHtml(this._draft.name)}" ${this._saving ? "disabled" : ""}>
-            </label>
+              <button type="button" class="avatar-trigger" data-avatar-picker
+                aria-expanded="false" aria-controls="schedule-avatar-picker"
+                ${this._saving ? "disabled" : ""}></button>
+            </div>
             <div class="field-group">
               <span class="field-label">Switches</span>
               <div class="entity-picker">
@@ -631,7 +644,8 @@ class PlantLightSchedulerCard extends HTMLElement {
             }>${this._saving ? "Saving…" : "Save"}</button>
           </div>
         </section>
-        <section class="time-picker" id="schedule-time-picker" aria-labelledby="time-picker-title" hidden></section>
+        <section class="time-picker editor-popout" id="schedule-time-picker" aria-labelledby="time-picker-title" hidden></section>
+        <section class="avatar-picker editor-popout" id="schedule-avatar-picker" aria-labelledby="avatar-picker-title" hidden></section>
       </div>`;
   }
 
@@ -672,6 +686,7 @@ class PlantLightSchedulerCard extends HTMLElement {
 
   _bindDialogEvents() {
     this._bindSwitchPicker();
+    this._bindAvatarPicker();
 
     this.shadowRoot.querySelector("#schedule-name")?.addEventListener("input", (event) => {
       this._draft.name = event.target.value;
@@ -702,11 +717,11 @@ class PlantLightSchedulerCard extends HTMLElement {
     this.shadowRoot
       .querySelector('[data-action="dismiss"]')
       ?.addEventListener("click", (event) => {
-        if (event.target.closest(".time-picker, [data-time-picker]")) return;
-        if (this._closeTimePicker()) return;
+        if (event.target.closest(".editor-popout, [data-time-picker], [data-avatar-picker]")) return;
+        if (this._closeTimePicker() || this._closeAvatarPicker()) return;
         if (event.target === event.currentTarget) this._closeDialog();
       });
-    this.shadowRoot.querySelector(".dialog")?.addEventListener("scroll", this._repositionTimePicker);
+    this.shadowRoot.querySelector(".dialog")?.addEventListener("scroll", this._repositionPicker);
     this.shadowRoot
       .querySelector('[data-action="save"]')
       ?.addEventListener("click", () => this._saveDraft());
@@ -727,11 +742,64 @@ class PlantLightSchedulerCard extends HTMLElement {
       ?.addEventListener("click", () => this._deleteDraft());
   }
 
+  _bindAvatarPicker() {
+    const trigger = this.shadowRoot.querySelector("[data-avatar-picker]");
+    if (!trigger) return;
+    const panel = this.shadowRoot.querySelector("#schedule-avatar-picker");
+    const renderTrigger = () => {
+      const avatar = this._draft.avatar;
+      const selected = hasAvatar(avatar);
+      trigger.innerHTML = selected ? avatarArtwork(avatar) : '<ha-icon icon="mdi:sprout-outline" aria-hidden="true"></ha-icon>';
+      trigger.setAttribute("aria-label", selected
+        ? `Choose plant avatar (current: ${AVATAR_NAMES[avatar]})`
+        : "Choose plant avatar");
+      trigger.title = "Choose plant avatar";
+    };
+    renderTrigger();
+    trigger.addEventListener("click", () => {
+      if (this._closeAvatarPicker(true)) return;
+      this._closeTimePicker();
+      this._closeSwitchPicker();
+      panel.innerHTML = `<h3 id="avatar-picker-title">Choose plant avatar</h3>
+        <div class="avatar-options">${AVATAR_NAMES.map((name, id) => `
+          <button type="button" data-avatar="${id}" aria-label="${name}" title="${name}"
+            aria-pressed="${id === this._draft.avatar}">${avatarArtwork(id)}</button>
+        `).join("")}</div>`;
+      trigger.setAttribute("aria-expanded", "true");
+      panel.hidden = false;
+      this._positionOpenPicker();
+      const selected = panel.querySelector('[aria-pressed="true"]');
+      (selected ?? panel.querySelector("[data-avatar]")).focus({ preventScroll: true });
+    });
+    panel.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-avatar]");
+      if (!button || this._saving) return;
+      const avatar = Number(button.dataset.avatar);
+      if (this._draft.avatar !== avatar) {
+        this._draft.avatar = avatar;
+        this._draft.avatarChanged = true;
+        renderTrigger();
+      }
+      this._closeAvatarPicker(true);
+    });
+  }
+
+  _closeAvatarPicker(restoreFocus = false) {
+    const panel = this.shadowRoot.querySelector(".avatar-picker:not([hidden])");
+    if (!panel) return false;
+    const trigger = this.shadowRoot.querySelector("[data-avatar-picker]");
+    panel.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus) trigger.focus({ preventScroll: true });
+    return true;
+  }
+
   _openTimePicker(trigger) {
     const time = trigger.dataset.timePicker;
     const input = this.shadowRoot.querySelector(`#${time}-time`);
     const panel = this.shadowRoot.querySelector("#schedule-time-picker");
     this._closeSwitchPicker();
+    this._closeAvatarPicker();
 
     const current = normalizeTime(input.value) ?? (time === "on" ? "08:00" : "21:00");
     const [hour, minute] = current.split(":").map(Number);
@@ -753,7 +821,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     trigger.setAttribute("aria-expanded", "true");
     panel.hidden = false;
     this.shadowRoot.querySelector('[data-action="save"]').disabled = true;
-    this._positionTimePicker();
+    this._positionOpenPicker();
     for (const list of panel.querySelectorAll(".time-choice-list")) {
       const selected = list.querySelector(":checked").parentElement;
       list.scrollTop = selected.offsetTop - (list.clientHeight - selected.offsetHeight) / 2;
@@ -784,17 +852,18 @@ class PlantLightSchedulerCard extends HTMLElement {
     </fieldset>`;
   }
 
-  _positionTimePicker() {
-    const panel = this.shadowRoot.querySelector(".time-picker:not([hidden])");
+  _positionOpenPicker() {
+    const panel = this.shadowRoot.querySelector(".editor-popout:not([hidden])");
     if (!panel) return;
-    const trigger = this.shadowRoot.querySelector('[data-time-picker][aria-expanded="true"]');
+    const trigger = this.shadowRoot.querySelector(`[aria-controls="${panel.id}"][aria-expanded="true"]`);
+    if (!trigger) return;
     const anchor = trigger.getBoundingClientRect();
     const area = panel.parentElement.getBoundingClientRect();
     const margin = 8;
     const gap = 6;
     const above = anchor.top - area.top - margin - gap;
     const below = area.bottom - anchor.bottom - margin - gap;
-    // Prefer opening below the clock, and flip upward when there is more room.
+    // Prefer opening below the trigger, and flip upward when there is more room.
     const openAbove = panel.scrollHeight + 2 > below && above > below;
     panel.style.maxHeight = `${Math.max(0, openAbove ? above : below)}px`;
     const { width, height } = panel.getBoundingClientRect();
@@ -868,6 +937,7 @@ class PlantLightSchedulerCard extends HTMLElement {
     trigger.addEventListener("click", () => {
       if (this._closeSwitchPicker()) return;
       this._closeTimePicker();
+      this._closeAvatarPicker();
       renderOptions();
       panel.hidden = false;
       trigger.setAttribute("aria-expanded", "true");
@@ -962,6 +1032,7 @@ class PlantLightSchedulerCard extends HTMLElement {
         enabled: this._draft.enabled,
       };
       if (this._draft.id) message.schedule_id = this._draft.id;
+      if (this._draft.avatarChanged) message.avatar = this._draft.avatar;
       await this._hass.connection.sendMessagePromise(message);
       this._draft = null;
       await this._loadSchedules();
@@ -1318,7 +1389,14 @@ class PlantLightSchedulerCard extends HTMLElement {
       .icon-button:hover { background: var(--secondary-background-color); }
       .dialog-body { padding: 8px 24px 24px; }
       .field-label { display: block; font-size: 14px; font-weight: 500; }
-      .schedule-name-field { display: grid; gap: 7px; margin-bottom: 18px; }
+      .schedule-name-field {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 48px;
+        align-items: center;
+        gap: 7px 10px;
+        margin-bottom: 18px;
+      }
+      .schedule-name-field label { grid-column: 1 / -1; }
       .schedule-name-field input {
         min-width: 0;
         height: 48px;
@@ -1332,6 +1410,27 @@ class PlantLightSchedulerCard extends HTMLElement {
       .schedule-name-field input:focus-visible {
         outline: 2px solid var(--scheduler-accent);
         outline-offset: -1px;
+      }
+      .avatar-trigger, .avatar-options button {
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        padding: 2px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        cursor: pointer;
+      }
+      .avatar-trigger { width: 48px; height: 48px; border-color: var(--divider-color); }
+      .avatar-trigger svg, .avatar-options svg { display: block; width: 100%; pointer-events: none; }
+      .avatar-trigger:hover, .avatar-options button:hover { background: var(--secondary-background-color); }
+      .avatar-trigger:focus-visible, .avatar-options button:focus-visible {
+        outline: 2px solid var(--scheduler-accent);
+        outline-offset: 1px;
+      }
+      .avatar-trigger[aria-expanded="true"], .avatar-options button[aria-pressed="true"] {
+        border-color: var(--scheduler-accent);
+        background: color-mix(in srgb, var(--scheduler-accent) 12%, transparent);
       }
       .entity-picker { position: relative; margin-top: 7px; }
       .switch-picker-trigger {
@@ -1493,7 +1592,7 @@ class PlantLightSchedulerCard extends HTMLElement {
         outline: 2px solid var(--scheduler-accent);
         outline-offset: -2px;
       }
-      .time-picker {
+      .editor-popout {
         position: absolute;
         z-index: 3;
         width: min(300px, calc(100% - 16px));
@@ -1506,7 +1605,9 @@ class PlantLightSchedulerCard extends HTMLElement {
         background: var(--card-background-color, #fff);
         box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
       }
-      .time-picker h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
+      .editor-popout h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
+      .avatar-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+      .avatar-options button { aspect-ratio: 1; }
       .time-picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
       .time-picker fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
       .time-picker legend { margin-bottom: 5px; padding: 0; color: var(--secondary-text-color); font-size: 12px; }

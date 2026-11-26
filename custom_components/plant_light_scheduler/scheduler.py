@@ -114,7 +114,7 @@ class PlantLightScheduler:
             schedule["name"] = name
         async with self._lock:
             self._check_entity_assignments(set(schedule["entities"]))
-            self._assign_avatar(schedule)
+            self._assign_avatar(schedule, data.get("avatar"))
             self.schedules.append(schedule)
             await self._async_save()
         await self.async_reconcile(schedule["entities"])
@@ -135,11 +135,13 @@ class PlantLightScheduler:
             }
             if name := data.get("name", previous.get("name")):
                 schedule["name"] = name
-            if "avatar" in previous:
-                schedule["avatar"] = previous["avatar"]
             self._check_entity_assignments(
                 set(schedule["entities"]) - previously_managed
             )
+            if "avatar" in data:
+                self._assign_avatar(schedule, data["avatar"])
+            elif "avatar" in previous:
+                schedule["avatar"] = previous["avatar"]
             self.schedules[index] = schedule
             await self._async_save()
         await self.async_reconcile(previously_managed | set(schedule["entities"]))
@@ -177,15 +179,17 @@ class PlantLightScheduler:
                 return index
         raise KeyError(schedule_id)
 
-    def _assign_avatar(self, schedule: Schedule) -> None:
-        """Draw an unused avatar and permanently reserve it."""
-        available = [
-            avatar for avatar in range(AVATAR_COUNT) if avatar not in self._used_avatars
-        ]
-        if available:
+    def _assign_avatar(self, schedule: Schedule, avatar: int | None = None) -> None:
+        """Record an explicit choice or draw a previously unused avatar."""
+        if avatar is None:
+            available = [
+                item for item in range(AVATAR_COUNT) if item not in self._used_avatars
+            ]
+            if not available:
+                return
             avatar = choice(available)
-            schedule["avatar"] = avatar
-            self._used_avatars.add(avatar)
+        schedule["avatar"] = avatar
+        self._used_avatars.add(avatar)
 
     async def _async_save(self) -> None:
         """Write the current schedules to storage."""
